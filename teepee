@@ -207,7 +207,8 @@ to know, expecially for programmatic usage.
 
 The template to be expanded can be provided either from a file (via
 option L</--template>) or from the command-line directly (via
-option L</--text>).
+option L</--text>). Templates can be written according to what
+L<Template::Perlish> provides.
 
 All files are supposed to be UTF-8 encoded. When the template is
 provided from the command line, module L<I18N::Langinfo> is used to
@@ -319,6 +320,10 @@ Data will be printed assuming the channel is UTF-8 capable.
 
 set the input template filename. The input file is assumed to be UTF-8
 encoded.
+
+Templates are assumed to be valid L<Template::Perlish> template files,
+see that module's documentation for additional help. The default opener
+and closer are assumed.
 
 =item -T 
 

@@ -48,7 +48,8 @@ to know, expecially for programmatic usage.
 
 The template to be expanded can be provided either from a file (via
 option ["--template"](#template)) or from the command-line directly (via
-option ["--text"](#text)).
+option ["--text"](#text)). Templates can be written according to what
+[Template::Perlish](https://metacpan.org/pod/Template::Perlish) provides.
 
 All files are supposed to be UTF-8 encoded. When the template is
 provided from the command line, module [I18N::Langinfo](https://metacpan.org/pod/I18N::Langinfo) is used to
@@ -134,6 +135,10 @@ Output will be printed assuming that the receiving end is UTF-8 capable.
 
     set the input template filename. The input file is assumed to be UTF-8
     encoded.
+
+    Templates are assumed to be valid [Template::Perlish](https://metacpan.org/pod/Template::Perlish) template files,
+    see that module's documentation for additional help. The default opener
+    and closer are assumed.
 
 - -T 
 - --text
