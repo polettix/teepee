@@ -230,6 +230,40 @@ Output will be printed assuming that the receiving end is UTF-8 capable.
    -d key=value
    --define key=value
 
+add the definition of an element in the input data. The following
+algorithm applies:
+
+=over
+
+=item *
+
+input definition C<key=value> is split at the first C<=> sign found.
+This means that the C<key> cannot contain C<=> signs, while the value
+can;
+
+=item *
+
+the C<key> part is divided into sub-keys splitting using the C<.> dot
+character. This means that sub-keys cannot contain dots.
+
+=item *
+
+each sub-key is used to traverse the input data, with auto-vivification
+when necessary.
+
+=item *
+
+sub-keys that are non-negative integers (i.e. either 0 or any positive
+integer) are regarded as array indexes. Otherwise, the sub-key is
+regarded as a hash key.
+
+=item *
+
+the C<value> part is assigned as the element I<pointed> by the last
+sub-key.
+
+=back
+
 =item -f
 
 =item --format

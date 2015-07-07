@@ -67,6 +67,22 @@ Output will be printed assuming that the receiving end is UTF-8 capable.
         -d key=value
         --define key=value
 
+    add the definition of an element in the input data. The following
+    algorithm applies:
+
+    - input definition `key=value` is split at the first `=` sign found.
+    This means that the `key` cannot contain `=` signs, while the value
+    can;
+    - the `key` part is divided into sub-keys splitting using the `.` dot
+    character. This means that sub-keys cannot contain dots.
+    - each sub-key is used to traverse the input data, with auto-vivification
+    when necessary.
+    - sub-keys that are non-negative integers (i.e. either 0 or any positive
+    integer) are regarded as array indexes. Otherwise, the sub-key is
+    regarded as a hash key.
+    - the `value` part is assigned as the element _pointed_ by the last
+    sub-key.
+
 - -f
 - --format
 
