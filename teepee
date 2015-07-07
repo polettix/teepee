@@ -89,7 +89,7 @@ sub read_input {
    my ($filename, $format) = @_;
    my $octets = slurp_octets($filename);
    $format ||= detect_format($filename, $octets);
-   die "cannot read input format\n" unless defined $format;
+   die "undefined input format\n" unless defined $format;
    my $function = {
       yaml => \&read_input_yaml,
       yml  => \&read_input_yaml,
@@ -139,7 +139,7 @@ sub detect_format {
    return 'yaml' if $_[0] =~ m{\A---}mxs;
 
    # bail out
-   die "cannot infer format from filename '$filename'\n";
+   die "cannot infer format for file '$filename'\n";
 } ## end sub detect_format
 
 sub pointer_to_element {
@@ -173,38 +173,124 @@ teepee - extract data from structures
 
 =head1 EXAMPLES
 
-   shell$ teepee -i data.yml -t template.file -o /dev/null
-
-=for l'autore, da riempire:
-   Qualche breve esempio con codice che mostri l'utilizzo più comune.
-   Questa sezione sarà quella probabilmente più letta, perché molti
-   utenti si annoiano a leggere tutta la documentazione, per cui
-   è meglio essere il più educativi ed esplicativi possibile.
+   shell$ teepee -i data.yml -t template.file -o generated
+   
+   shell$ teepee -i data.json -T 'hello [% customer.name %]'
 
 
 =head1 DESCRIPTION
 
-=for l'autore, da riempire:
-   Fornite una descrizione completa del modulo e delle sue caratteristiche.
-   Aiutatevi a strutturare il testo con le sottosezioni (=head2, =head3)
-   se necessario.
+C<teepee> allows you to generate data according to a template. Data is
+extracted from data structures available in JSON or YAML format, read
+from files or from standard input. This should make it easy to extract
+the needed data e.g. out of the output from some tool that provides you
+structured JSON or YAML text in output.
+
+Input data structures can be provided via option L<-i | --input>. You
+can provide more than one input; in this case, they will be read in
+order and merged together. Merging in this case means that whatever is
+present in a file provided later in the command line supersedes
+whatevever was previously available. If you set the input filename as
+C<->, the input will be read from standard input.
+
+You can provide input definitions from the command line too, via option
+L</--define>. In this case, you can provide the "path" into the
+data structure separating items with a dot C<.>. Any key part that
+resembles an integer index starting from 0 will be interpreted as an
+array index, otherwise it will be considered a hash key. Definitions
+with this options always supersede those read from input files.
+
+The input format can be either specified explicitly via option
+L</--format> or deduced implicitly. The heuristic will first check the
+file name, then the contents. Suggestion is to specify it if you happen
+to know, expecially for programmatic usage.
+
+The template to be expanded can be provided either from a file (via
+option L</--template>) or from the command-line directly (via
+option L</--text>).
+
+All files are supposed to be UTF-8 encoded. When the template is
+provided from the command line, module L<I18N::Langinfo> is used to
+auto-detect the terminal setting and try to do the right things. If in
+doubt, just use a UTF-8 encoded file for your template.
+
+Output is sent to either standard output (by default or if you set the
+filename to C<->) or to the filename specified via option C</--output>.
+Output will be printed assuming that the receiving end is UTF-8 capable.
 
 
 =head1 OPTIONS
 
-=for l'autore, da riempire:
-   Una descrizione di tutte le opzioni possibili nella chiamata allo script
-
 =over
+
+=item -d
+
+=item --define
+
+   -d key=value
+   --define key=value
+
+=item -f
+
+=item --format
+
+   -f <yaml|yml|json|jsn>
+   --format <yaml|yml|json|jsn>
+
+set the format for input data files. It can be one of C<yml>, C<yaml>,
+C<json> or C<jsn> in whatever case.
 
 =item --help
 
 print a somewhat more verbose help, showing usage, this description of
 the options and some examples from the synopsis.
 
+=item -i
+
+=item --input
+
+   -i filename
+   --input filename
+
+an input file carrying data for expansion. This option can be set
+multiple times, which will trigger (shallow) merging of the data
+structures.
+
+If set as C<->, standard input will be read.
+
+Note: only allowed data structures are hashes at the top level.
+
 =item --man
 
 print out the full documentation for the script.
+
+=item -o 
+
+=item --output
+
+   -o filename
+   --output filename
+
+set the output channel where data will be sent. By default it is set to
+C<->, which means standard output.
+
+Data will be printed assuming the channel is UTF-8 capable.
+
+=item -t 
+
+=item --template
+
+   -t filename
+   --template filename
+
+set the input template filename. The input file is assumed to be UTF-8
+encoded.
+
+=item -T 
+
+=item --text
+
+set the template to expand directly on the command line.
 
 =item --usage
 
@@ -218,67 +304,71 @@ print the version of the script.
 
 =head1 DIAGNOSTICS
 
-=for l'autore, da riempire:
-   Elencate qualunque singolo errore o messaggio di avvertimento che
-   lo script può generare, anche quelli che non "accadranno mai".
-   Includete anche una spiegazione completa di ciascuno di questi
-   problemi, una o più possibili cause e qualunque rimedio
-   suggerito.
-
-
 =over
 
-=item C<< Error message here, perhaps with %s placeholders >>
+=item C<< output open('%s'): %s >>
 
-[Descrizione di un errore]
+errors while opening the output channel, second placeholder carries the
+error from the operating system.
 
-=item C<< Another error message here >>
+=item C<< undefined input format >>
 
-[Descrizione di un errore]
+auto-detection of input format failed. You can use option L</--format>
+to specify the input format.
 
-[E così via...]
+=item C<< cannot read input format %s >>
+
+the provided input format is not recognised, see L</--format> for the
+allowed values.
+
+=item C<< undefined filename >>
+
+the filename provided for input reading is not defined. This applies
+both to data and template inputs.
+
+=item C<< input open('%s'): %s >>
+
+errors while opening an input file, second placeholder carries the
+error from the operating system.
+
+=item C<< cannot infer format for file '%s' >>
+
+heuristic to infer the format of the file failed. You can specify the
+format to be used using L</--format>
 
 =back
 
 
 =head1 CONFIGURATION AND ENVIRONMENT
 
-=for l'autore, da riempire:
-   Una spiegazione completa di qualunque sistema di configurazione
-   utilizzato dallo script, inclusi i nomi e le posizioni dei file di
-   configurazione, il significato di ciascuna variabile di ambiente
-   utilizzata e proprietà che può essere impostata. Queste descrizioni
-   devono anche includere dettagli su eventuali linguaggi di configurazione
-   utilizzati.
-  
 teepee requires no configuration files or environment variables.
 
 
 =head1 DEPENDENCIES
 
-=for l'autore, da riempire:
-   Una lista di tutti i moduli su cui si basa questo script,
-   incluse eventuali restrizioni sulle relative versioni, ed una
-   indicazione se il modulo in questione è parte della distribuzione
-   standard di Perl, parte della distribuzione del modulo o se
-   deve essere installato separatamente.
+=over
 
-None.
+=item *
 
+L<JSON::PP>
+
+=item *
+
+L<Template::Perlish>
+
+=item *
+
+L<YAML::Tiny>
+
+=back
+
+The bundled version contains all the needed modules.
 
 =head1 BUGS AND LIMITATIONS
 
-=for l'autore, da riempire:
-   Una lista di tutti i problemi conosciuti relativi al modulo,
-   insime a qualche indicazione sul fatto che tali problemi siano
-   plausibilmente risolti in una versione successiva. Includete anche
-   una lista delle restrizioni sulle funzionalità fornite dal
-   modulo: tipi di dati che non si è in grado di gestire, problematiche
-   relative all'efficienza e le circostanze nelle quali queste possono
-   sorgere, limitazioni pratiche sugli insiemi dei dati, casi
-   particolari che non sono (ancora) gestiti, e così via.
-
-No bugs have been reported.
+No bugs have been reported. Auto-detection of local should probably
+extend to output encoding when printing to standard output, as opposed
+to assuming UTF-8 is fine.
 
 Please report any bugs or feature requests through http://rt.cpan.org/
 
