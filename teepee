@@ -154,6 +154,16 @@ __END__
 
 teepee - extract data from structures
 
+=head1 HURRY UP!
+
+Get the bundled version like this:
+
+   curl -LO https://github.com/polettix/teepee/raw/master/bundle/teepee
+
+or this
+
+   wget https://github.com/polettix/teepee/raw/master/bundle/teepee
+
 =head1 VERSION
 
 

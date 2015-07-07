@@ -2,6 +2,16 @@
 
 teepee - extract data from structures
 
+# HURRY UP!
+
+Get the bundled version like this:
+
+    curl -LO https://github.com/polettix/teepee/raw/master/bundle/teepee
+
+or this
+
+    wget https://github.com/polettix/teepee/raw/master/bundle/teepee
+
 # USAGE
 
     teepee [--usage] [--help] [--man] [--version]
