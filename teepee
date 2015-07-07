@@ -164,11 +164,7 @@ or this
 
    wget https://github.com/polettix/teepee/raw/master/bundle/teepee
 
-=head1 VERSION
-
-
-   shell$ teepee --version
-
+or just click here: L<https://github.com/polettix/teepee/raw/master/bundle/teepee>
 
 =head1 USAGE
 

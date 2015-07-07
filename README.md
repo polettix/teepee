@@ -12,6 +12,8 @@ or this
 
     wget https://github.com/polettix/teepee/raw/master/bundle/teepee
 
+or just click here: [https://github.com/polettix/teepee/raw/master/bundle/teepee](https://github.com/polettix/teepee/raw/master/bundle/teepee)
+
 # USAGE
 
     teepee [--usage] [--help] [--man] [--version]
