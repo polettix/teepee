@@ -1,0 +1,302 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+use Carp;
+use Pod::Usage qw< pod2usage >;
+use Getopt::Long qw< :config gnu_getopt >;
+use English qw< -no_match_vars >;
+my $VERSION = '0.0.1';
+use List::Util qw< reduce >;
+use I18N::Langinfo qw(langinfo CODESET);
+
+use Template::Perlish qw< render >;
+
+my %config = (
+   define => [],
+   input  => [],
+   output => '-',
+);
+GetOptions(
+   \%config,
+   qw<
+     usage! help! man! version!
+     define|d=s@
+     format|f=s
+     input|i=s@
+     output|o=s
+     template|t=s
+     text|T=s
+     >
+) or pod2usage(-verbose => 99, -sections => 'USAGE');
+pod2usage(message => "$0 $VERSION", -verbose => 99, -sections => ' ')
+  if $config{version};
+pod2usage(-verbose => 99, -sections => 'USAGE') if $config{usage};
+pod2usage(-verbose => 99, -sections => 'USAGE|EXAMPLES|OPTIONS')
+  if $config{help};
+pod2usage(-verbose => 2) if $config{man};
+
+# Script implementation here
+my $vars     = read_inputs(\%config);
+my $template = read_template(\%config);
+my $ofh      = get_output_fh($config{output});
+print {$ofh} render($template, $vars);
+
+sub get_output_fh {
+   my ($filename) = @_;
+   my $fh = \*STDOUT;
+   if ($filename ne '-') {
+      $fh = undef;
+      open $fh, '<', $filename
+        or die "output open('$filename'): $OS_ERROR\n";
+   }
+   binmode $fh, ':encoding(UTF-8)';
+   return $fh;
+} ## end sub get_output_fh
+
+sub read_template {
+   my $cfg = shift;
+
+   return octets_to_characters(slurp_octets($cfg->{template}))
+     unless exists $cfg->{text};
+
+   require I18N::Langinfo;
+   require Encode;
+   my $codeset = I18N::Langinfo::langinfo(I18N::Langinfo::CODESET());
+   return Encode::decode($codeset, $cfg->{text});
+} ## end sub read_template
+
+sub read_inputs {
+   my $cfg = shift;
+   my %retval;
+
+   my @inputs = @{$cfg->{input}};
+   @inputs = '-' unless @inputs;
+   for my $filename (@inputs) {
+      my $data = read_input($filename, $cfg->{format});
+      %retval = (%retval, %$data);
+   }
+
+   for my $item (@{$cfg->{define}}) {
+      my ($key, $value) = split /=/, $item, 2;
+      my $pointer = pointer_to_element(\%retval, split /\./, $key);
+      $$pointer = $value;
+   }
+
+   return \%retval;
+} ## end sub read_inputs
+
+sub read_input {
+   my ($filename, $format) = @_;
+   my $octets = slurp_octets($filename);
+   $format ||= detect_format($filename, $octets);
+   die "cannot read input format\n" unless defined $format;
+   my $function = {
+      yaml => \&read_input_yaml,
+      yml  => \&read_input_yaml,
+      json => \&read_input_json,
+      jsn  => \&read_input_json,
+   }->{lc($format)};
+   die "cannot read input format $format\n" unless defined $function;
+   return $function->($octets);
+} ## end sub read_input
+
+sub octets_to_characters {
+   require Encode;
+   return Encode::decode('UTF-8', $_[0]);
+}
+
+sub slurp_octets {
+   my ($filename) = @_;
+   die "undefined filename\n" unless defined $filename;
+   my $fh = \*STDIN;
+   if ($filename ne '-') {
+      $fh = undef;
+      open $fh, '<', $filename
+        or die "input open('$filename'): $OS_ERROR\n";
+   }
+   binmode $fh, ':raw';
+   local $/;
+   return <$fh>;
+} ## end sub slurp_octets
+
+sub read_input_yaml {
+   require YAML::Tiny;
+   return YAML::Tiny::Load(octets_to_characters($_[0]));
+} ## end sub read_input_yaml
+
+sub read_input_json {
+   require JSON::PP;
+   return JSON::PP::decode_json($_[0]);
+} ## end sub read_input_json
+
+sub detect_format {
+   my $filename = shift;
+   return 'yaml' if $filename =~ m{\. ya?ml \z}imxs;
+   return 'json' if $filename =~ m{\. jso?n \z}imxs;
+
+   # try with content
+   return 'json' if $_[0] =~ m/\A{/mxs;
+   return 'yaml' if $_[0] =~ m{\A---}mxs;
+
+   # bail out
+   die "cannot infer format from filename '$filename'\n";
+} ## end sub detect_format
+
+sub pointer_to_element {
+   return reduce {
+      ($b =~ m{\A(?: 0 | [1-9]\d* )\z}mxs) ? \($$a->[$b]) : \($$a->{$b});
+   }, \shift, @_;
+}
+
+__END__
+
+=head1 NAME
+
+teepee - extract data from structures
+
+=head1 VERSION
+
+
+   shell$ teepee --version
+
+
+=head1 USAGE
+
+   teepee [--usage] [--help] [--man] [--version]
+
+   teepee [-d|--define key=value]
+          [-f|--format input-format]
+          [-i|--input filename]
+          [-o|--output filename]
+          [-t|--template filename]
+          [-T|--text string]
+
+=head1 EXAMPLES
+
+   shell$ teepee -i data.yml -t template.file -o /dev/null
+
+=for l'autore, da riempire:
+   Qualche breve esempio con codice che mostri l'utilizzo più comune.
+   Questa sezione sarà quella probabilmente più letta, perché molti
+   utenti si annoiano a leggere tutta la documentazione, per cui
+   è meglio essere il più educativi ed esplicativi possibile.
+
+
+=head1 DESCRIPTION
+
+=for l'autore, da riempire:
+   Fornite una descrizione completa del modulo e delle sue caratteristiche.
+   Aiutatevi a strutturare il testo con le sottosezioni (=head2, =head3)
+   se necessario.
+
+
+=head1 OPTIONS
+
+=for l'autore, da riempire:
+   Una descrizione di tutte le opzioni possibili nella chiamata allo script
+
+=over
+
+=item --help
+
+print a somewhat more verbose help, showing usage, this description of
+the options and some examples from the synopsis.
+
+=item --man
+
+print out the full documentation for the script.
+
+=item --usage
+
+print a concise usage line and exit.
+
+=item --version
+
+print the version of the script.
+
+=back
+
+=head1 DIAGNOSTICS
+
+=for l'autore, da riempire:
+   Elencate qualunque singolo errore o messaggio di avvertimento che
+   lo script può generare, anche quelli che non "accadranno mai".
+   Includete anche una spiegazione completa di ciascuno di questi
+   problemi, una o più possibili cause e qualunque rimedio
+   suggerito.
+
+
+=over
+
+=item C<< Error message here, perhaps with %s placeholders >>
+
+[Descrizione di un errore]
+
+=item C<< Another error message here >>
+
+[Descrizione di un errore]
+
+[E così via...]
+
+=back
+
+
+=head1 CONFIGURATION AND ENVIRONMENT
+
+=for l'autore, da riempire:
+   Una spiegazione completa di qualunque sistema di configurazione
+   utilizzato dallo script, inclusi i nomi e le posizioni dei file di
+   configurazione, il significato di ciascuna variabile di ambiente
+   utilizzata e proprietà che può essere impostata. Queste descrizioni
+   devono anche includere dettagli su eventuali linguaggi di configurazione
+   utilizzati.
+  
+teepee requires no configuration files or environment variables.
+
+
+=head1 DEPENDENCIES
+
+=for l'autore, da riempire:
+   Una lista di tutti i moduli su cui si basa questo script,
+   incluse eventuali restrizioni sulle relative versioni, ed una
+   indicazione se il modulo in questione è parte della distribuzione
+   standard di Perl, parte della distribuzione del modulo o se
+   deve essere installato separatamente.
+
+None.
+
+
+=head1 BUGS AND LIMITATIONS
+
+=for l'autore, da riempire:
+   Una lista di tutti i problemi conosciuti relativi al modulo,
+   insime a qualche indicazione sul fatto che tali problemi siano
+   plausibilmente risolti in una versione successiva. Includete anche
+   una lista delle restrizioni sulle funzionalità fornite dal
+   modulo: tipi di dati che non si è in grado di gestire, problematiche
+   relative all'efficienza e le circostanze nelle quali queste possono
+   sorgere, limitazioni pratiche sugli insiemi dei dati, casi
+   particolari che non sono (ancora) gestiti, e così via.
+
+No bugs have been reported.
+
+Please report any bugs or feature requests through http://rt.cpan.org/
+
+
+=head1 AUTHOR
+
+Flavio Poletti C<polettix@cpan.org>
+
+
+=head1 LICENCE AND COPYRIGHT
+
+Copyright (c) 2015, Flavio Poletti C<polettix@cpan.org>.
+
+This module is free software.  You can redistribute it and/or
+modify it under the terms of the Artistic License 2.0.
+
+This program is distributed in the hope that it will be useful,
+but without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
+=cut
