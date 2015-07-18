@@ -186,6 +186,7 @@ sub detect_format {
    die "cannot infer format for file '$filename'\n";
 } ## end sub detect_format
 
+# Adapted from http://perlmonks.org/?node_id=443584
 sub pointer_to_element {
    return reduce {
       ($b =~ m{\A(?: 0 | [1-9]\d* )\z}mxs) ? \($$a->[$b]) : \($$a->{$b});
