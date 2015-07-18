@@ -23,6 +23,7 @@ GetOptions(
      define|d=s@
      format|f=s
      input|i=s@
+     newline|n!
      output|o=s
      template|t=s
      text|T=s
@@ -35,11 +36,15 @@ pod2usage(-verbose => 99, -sections => 'USAGE|EXAMPLES|OPTIONS')
   if $config{help};
 pod2usage(-verbose => 2) if $config{man};
 
+$config{newline} = 1
+   if $ENV{TEEPEE_NEWLINE} && ! defined $config{newline};
+
 # Script implementation here
 my $vars     = read_inputs(\%config);
 my $template = read_template(\%config);
 my $ofh      = get_output_fh($config{output});
 print {$ofh} render($template, $vars);
+print {$ofh} "\n" if $config{newline};
 
 sub get_output_fh {
    my ($filename) = @_;
@@ -344,6 +349,21 @@ Note: only allowed data structures are hashes at the top level.
 
 print out the full documentation for the script.
 
+=item -n
+
+=item --newline
+
+=item --no-newline
+
+the first two forms set C<teepee> to always print a newline at the end.
+This should make it easier to use in the command line, especially for
+casually printing variables on the shell.
+
+The last form is the negation, i.e. newline printing is disabled. This
+can come handy when you set the environment variable L</TEEPEE_NEWLINE>
+to a non-false value, but you want to disable the newline printing in
+one call.
+
 =item -o 
 
 =item --output
@@ -425,7 +445,20 @@ format to be used using L</--format>
 
 =head1 CONFIGURATION AND ENVIRONMENT
 
-teepee requires no configuration files or environment variables.
+teepee requires no configuration files.
+
+The following environment variables are supported:
+
+=over
+
+=item B<< TEEPEE_NEWLINE >>
+
+when set to a true value, it has the same effect of option
+L</--newline>. Anyway, the command line always overrides the environment
+variable, so if option L</--no-newline> is set, the newline printig will
+be disabled anyway.
+
+=back
 
 
 =head1 DEPENDENCIES
