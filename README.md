@@ -128,6 +128,19 @@ Output will be printed assuming that the receiving end is UTF-8 capable.
 
     print out the full documentation for the script.
 
+- -n
+- --newline
+- --no-newline
+
+    the first two forms set `teepee` to always print a newline at the end.
+    This should make it easier to use in the command line, especially for
+    casually printing variables on the shell.
+
+    The last form is the negation, i.e. newline printing is disabled. This
+    can come handy when you set the environment variable ["TEEPEE\_NEWLINE"](#teepee_newline)
+    to a non-false value, but you want to disable the newline printing in
+    one call.
+
 - -o 
 - --output
 
@@ -199,7 +212,16 @@ Output will be printed assuming that the receiving end is UTF-8 capable.
 
 # CONFIGURATION AND ENVIRONMENT
 
-teepee requires no configuration files or environment variables.
+teepee requires no configuration files.
+
+The following environment variables are supported:
+
+- **TEEPEE\_NEWLINE**
+
+    when set to a true value, it has the same effect of option
+    ["--newline"](#newline). Anyway, the command line always overrides the environment
+    variable, so if option ["--no-newline"](#no-newline) is set, the newline printig will
+    be disabled anyway.
 
 # DEPENDENCIES
 
