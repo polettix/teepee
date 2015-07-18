@@ -21,6 +21,7 @@ or just click here: [https://github.com/polettix/teepee/raw/master/bundle/teepee
     teepee [-d|--define key=value]
            [-f|--format input-format]
            [-i|--input filename]
+           [-n|--newline|--no-newline]
            [-o|--output filename]
            [-t|--template filename]
            [-T|--text string]
