@@ -27,6 +27,7 @@ GetOptions(
      output|o=s
      template|t=s
      text|T=s
+     variable|v=s
      >
 ) or pod2usage(-verbose => 99, -sections => 'USAGE');
 pod2usage(message => "$0 $VERSION", -verbose => 99, -sections => ' ')
@@ -61,6 +62,8 @@ sub get_output_fh {
 sub read_template {
    my $cfg = shift;
 
+   $cfg->{text} = "[% $cfg->{variable} %]"
+     if exists $cfg->{variable};
    return octets_to_characters(slurp_octets($cfg->{template}))
      unless exists $cfg->{text};
 
