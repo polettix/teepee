@@ -10,8 +10,10 @@ use List::Util qw< reduce >;
 use I18N::Langinfo qw(langinfo CODESET);
 
 use Template::Perlish qw< render >;
+use Data::Crumbr;
 
 my %config = (
+   binmode => ':encoding(UTF-8)',
    define => [],
    input  => [],
    output => '-',
@@ -20,6 +22,7 @@ GetOptions(
    \%config,
    qw<
      usage! help! man! version!
+     binmode|b=s
      define|d=s@
      format|f=s
      input|i=s@
@@ -43,19 +46,40 @@ $config{newline} = 1
 # Script implementation here
 my $vars     = read_inputs(\%config);
 my $template = read_template(\%config);
-my $ofh      = get_output_fh($config{output});
+{
+   no warnings 'once';
+   my $crumbr = sub {
+      my ($profile) = @_;
+      $profile ||= 'URI';
+      my @output;
+      Data::Crumbr::crumbr(
+         profile => $profile,
+         encoder => { output => \*STDOUT },
+      )->($vars);
+   };
+   *Template::Perlish::crumbr_as = $crumbr;
+   *Template::Perlish::crumbr = sub { $crumbr->('URI') };
+   *Template::Perlish::uri_crumbr = sub { $crumbr->('URI') };
+   *Template::Perlish::exact_crumbr = sub { $crumbr->('Default') };
+   *Template::Perlish::json_crumbr = sub { $crumbr->('JSON') };
+}
+my $ofh      = get_output_fh($config{output}, $config{binmode});
 print {$ofh} render($template, $vars);
 print {$ofh} "\n" if $config{newline};
 
 sub get_output_fh {
-   my ($filename) = @_;
+   my ($filename, $binmode) = @_;
+
    my $fh = \*STDOUT;
    if ($filename ne '-') {
       $fh = undef;
-      open $fh, '<', $filename
+      open $fh, '>', $filename
         or die "output open('$filename'): $OS_ERROR\n";
    }
-   binmode $fh, ':encoding(UTF-8)';
+
+   $binmode = ':raw' if $binmode eq '';
+   binmode $fh, $binmode;
+
    return $fh;
 } ## end sub get_output_fh
 
