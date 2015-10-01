@@ -64,7 +64,8 @@ my $template = read_template(\%config);
    *Template::Perlish::json_crumbr = sub { $crumbr->('JSON') };
 }
 my $ofh      = get_output_fh($config{output}, $config{binmode});
-print {$ofh} render($template, $vars);
+my $output = render($template, $vars);
+print {$ofh} $output if defined $output;
 print {$ofh} "\n" if $config{newline};
 
 sub get_output_fh {
