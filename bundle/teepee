@@ -13,6 +13,261 @@ use I18N::Langinfo qw(langinfo CODESET);
 BEGIN {
    my %file_for = (
 
+      'Data/Crumbr/Default.pm' => <<'END_OF_FILE',
+ package Data::Crumbr::Default;
+ $Data::Crumbr::Default::VERSION = '0.1.0';
+ # ABSTRACT: Default renderer for Data::Crumbr
+ 
+ use Mo qw< default coerce >;
+ 
+ use 5.018;
+ use strict;
+ use warnings;
+ use Carp;
+ use English qw< -no_match_vars >;
+ use Scalar::Util qw< blessed >;
+ use Data::Crumbr::Util;
+ 
+ my $jenc = Data::Crumbr::Util::json_leaf_encoder();
+ my $ienc = Data::Crumbr::Util::id_encoder();
+ 
+ has array_open        => (default => sub { '' });
+ has array_close       => (default => sub { '' });
+ has array_key_prefix  => (default => sub { '[' });
+ has array_key_suffix  => (default => sub { ']' });
+ has array_key_encoder => (default => sub { $ienc });
+ has hash_open         => (default => sub { '' });
+ has hash_close        => (default => sub { '' });
+ has hash_key_prefix   => (default => sub { '{' });
+ has hash_key_suffix   => (default => sub { '}' });
+ has hash_key_encoder  => (default => sub { $jenc });
+ has value_encoder     => (default => sub { $jenc });
+ has keys_separator    => (default => sub { '' });
+ has value_separator   => (default => sub { ':' });
+ 
+ has output => (
+    default => sub { __output() },
+    coerce  => \&__output,
+ );
+ 
+ sub __output {
+    my ($output) = @_;
+    $output //= [];
+    my $reftype = ref $output;
+ 
+    if (!$reftype) {    # filename, transform into filehandle
+       my $fh = \*STDOUT;
+       if ($output ne '-') {
+          $fh = undef;
+          open $fh, '>', $output
+            or croak "open('$output'): $OS_ERROR";
+       }
+       binmode $fh, ':raw'
+         or croak "binmode() on $output: $OS_ERROR";
+       $reftype = ref($output = $fh);
+    } ## end if (!$reftype)
+ 
+    return sub {
+       return unless @_;
+       print {$output} $_[0], "\n";
+      }
+      if $reftype eq 'GLOB';
+ 
+    return sub {
+       return $output unless @_;
+       push @$output, $_[0];
+      }
+      if $reftype eq 'ARRAY';
+ 
+    return sub {
+       return unless @_;
+       $output->print($_[0]);
+      }
+      if blessed($output);
+ 
+    return sub {
+       return unless @_;
+       return $output->($_[0]);
+      }
+      if $reftype eq 'CODE';
+ 
+    croak "invalid output";
+ } ## end sub __output
+ 
+ sub leaf {
+    my ($self, $stack) = @_;
+ 
+    my $venc       = $self->value_encoder();
+    my @components = $venc->($stack->[-1]{data});
+ 
+    my @keys = map { $_->{encoded} } @$stack;
+    shift @keys;    # first item of @$stack is dummy
+    pop @keys;      # last item of @$stack is the leaf, drop it
+ 
+    my $closers = '';
+    if (@keys) {
+       unshift @components, join $self->keys_separator(), @keys;
+       $closers = $stack->[-2]{closers};
+    }
+ 
+    my $record = join $self->value_separator(), @components;
+    $self->output()->($record . $closers);
+ } ## end sub leaf
+ 
+ {
+    no strict 'refs';
+    *scalar_leaf = \&leaf;
+    *array_leaf  = \&leaf;
+    *hash_leaf   = \&leaf;
+ }
+ 
+ sub array_keys_iterator {
+    my ($self, $aref) = @_;
+    my $i   = 0;
+    my $sup = @$aref;
+    return sub {
+       return if $i >= $sup;
+       return $i++;
+    };
+ } ## end sub array_keys_iterator
+ 
+ sub hash_keys_iterator {
+    my ($self, $href) = @_;
+    my @keys = sort keys %$href;    # memory intensive...
+    return sub { return shift @keys };
+ }
+ 
+ sub array_key {
+    my ($self, $key) = @_;
+    return join '', $self->array_open(),
+      $self->array_key_prefix(),
+      $self->array_key_encoder()->($key),
+      $self->array_key_suffix();
+ } ## end sub array_key
+ 
+ sub hash_key {
+    my ($self, $key) = @_;
+    return join '', $self->hash_open(),
+      $self->hash_key_prefix(),
+      $self->hash_key_encoder()->($key),
+      $self->hash_key_suffix();
+ } ## end sub hash_key
+ 
+ sub result {
+    my ($self) = @_;
+    my $output = $self->output()->()
+      or return;
+    return join "\n", @$output;
+ } ## end sub result
+ 
+ sub reset {
+    my ($self) = @_;
+    my $output = $self->output()->()
+      or return;
+    @$output = ();
+    return;
+ } ## end sub reset
+ 
+ 1;
+ 
+ __END__
+ 
+ =pod
+ 
+ =encoding utf-8
+ 
+ =head1 NAME
+ 
+ Data::Crumbr::Default - Default renderer for Data::Crumbr
+ 
+ =head1 VERSION
+ 
+ version 0.1.0
+ 
+ =head1 DESCRIPTION
+ 
+ This is the default encoder implementation, and most probably the only
+ oney you really need. And most probably, you really not need to directly
+ use it.
+ 
+ =head1 INTERFACE
+ 
+ =over
+ 
+ =item B<< array_key >>
+ 
+ returns the encoded array key, optionally opening an array and keeping
+ into account the prefix, the suffix and the encoder for the key
+ 
+ =item B<< array_keys_iterator >>
+ 
+ returns an iterator sub starting from 0 up to the number of elements in
+ the array
+ 
+ =item B<< hash_key >>
+ 
+ returns the encoded hash key, optionally opening an hash and keeping
+ into account the prefix, the suffix and the encoder for the key
+ 
+ =item B<< hash_keys_iterator >>
+ 
+ returns an iterator sub that returns each key in the input hash, sorted
+ lexicographically
+ 
+ =item B<< leaf >>
+ 
+ =item B<< array_leaf >>
+ 
+ =item B<< hash_leaf >>
+ 
+ =item B<< scalar_leaf >>
+ 
+ this method is called whenever an external iteration component hits a
+ leaf and wants to push a new encoded record to the output
+ 
+ =item B<< new >>
+ 
+    my $enc = Data::Crumbr::Default->new(%args);
+ 
+ create a new encoder object
+ 
+ =item B<< reset >>
+ 
+ reset the encoder, i.e. wipe out all the internal state to start a new
+ encoding cycle.
+ 
+ =item B<< result >>
+ 
+ get the outcome of the encoding. Not guaranteed to work.
+ 
+ =back
+ 
+ =head1 AUTHOR
+ 
+ Flavio Poletti <polettix@cpan.org>
+ 
+ =head1 COPYRIGHT AND LICENSE
+ 
+ Copyright (C) 2015 by Flavio Poletti <polettix@cpan.org>
+ 
+ This module is free software.  You can redistribute it and/or
+ modify it under the terms of the Artistic License 2.0.
+ 
+ This program is distributed in the hope that it will be useful,
+ but without any warranty; without even the implied warranty of
+ merchantability or fitness for a particular purpose.
+ 
+ =cut
+
+END_OF_FILE
+
+      'Mo/default.pm' => <<'END_OF_FILE',
+ package Mo::default;my$M="Mo::";
+ $VERSION=0.39;
+ *{$M.'default::e'}=sub{my($P,$e,$o)=@_;$o->{default}=sub{my($m,$n,%a)=@_;exists$a{default}or return$m;my($d,$r)=$a{default};my$g='HASH'eq($r=ref$d)?sub{+{%$d}}:'ARRAY'eq$r?sub{[@$d]}:'CODE'eq$r?$d:sub{$d};my$i=exists$a{lazy}?$a{lazy}:!${$P.':N'};$i or ${$P.':E'}{$n}=$g and return$m;sub{$#_?$m->(@_):!exists$_[0]{$n}?$_[0]{$n}=$g->(@_):$m->(@_)}}};
+
+END_OF_FILE
+
       'Data/Crumbr/Default/URI.pm' => <<'END_OF_FILE',
  package Data::Crumbr::Default::URI;
  $Data::Crumbr::Default::URI::VERSION = '0.1.0';
@@ -95,120 +350,10 @@ BEGIN {
 
 END_OF_FILE
 
-      'JSON/PP/Boolean.pm' => <<'END_OF_FILE',
- =head1 NAME
- 
- JSON::PP::Boolean - dummy module providing JSON::PP::Boolean
- 
- =head1 SYNOPSIS
- 
-  # do not "use" yourself
- 
- =head1 DESCRIPTION
- 
- This module exists only to provide overload resolution for Storable and similar modules. See
- L<JSON::PP> for more info about this class.
- 
- =cut
- 
- use JSON::PP ();
- use strict;
- 
- 1;
- 
- =head1 AUTHOR
- 
- This idea is from L<JSON::XS::Boolean> written by Marc Lehmann <schmorp[at]schmorp.de>
- 
- =cut
- 
-
-END_OF_FILE
-
-      'Data/Crumbr/Default/JSON.pm' => <<'END_OF_FILE',
- package Data::Crumbr::Default::JSON;
- $Data::Crumbr::Default::JSON::VERSION = '0.1.0';
- # ABSTRACT: "JSON" profile for Data::Crumbr::Default
- use Data::Crumbr::Util;
- 
- sub profile {
-    my $json_encoder = Data::Crumbr::Util::json_leaf_encoder();
-    return {
-       hash_open       => '{',
-       hash_key_prefix => '',
-       hash_key_suffix => ':',
-       hash_close      => '}',
- 
-       array_open       => '[',
-       array_key_prefix => '',
-       array_key_suffix => '',
-       array_close      => ']',
- 
-       keys_separator    => '',
-       value_separator   => '',
-       array_key_encoder => sub { },
-       hash_key_encoder  => $json_encoder,
-       value_encoder     => $json_encoder,
-    };
- } ## end sub profile
- 
- 1;
- 
- __END__
- 
- =pod
- 
- =encoding utf-8
- 
- =head1 NAME
- 
- Data::Crumbr::Default::JSON - "JSON" profile for Data::Crumbr::Default
- 
- =head1 VERSION
- 
- version 0.1.0
- 
- =head1 DESCRIPTION
- 
- Profile for JSON encoder
- 
- =head1 INTERFACE
- 
- =over
- 
- =item B<< profile >>
- 
-    my $profile = Data::Crumbr::Default::JSON->profile();
- 
- returns a default profile, i.e. encoder data to be used to instantiate a
- Data::Crumbr::Default encoder. See L</Data::Crumbr> for details about
- this profile.
- 
- =back
- 
- =head1 AUTHOR
- 
- Flavio Poletti <polettix@cpan.org>
- 
- =head1 COPYRIGHT AND LICENSE
- 
- Copyright (C) 2015 by Flavio Poletti <polettix@cpan.org>
- 
- This module is free software.  You can redistribute it and/or
- modify it under the terms of the Artistic License 2.0.
- 
- This program is distributed in the hope that it will be useful,
- but without any warranty; without even the implied warranty of
- merchantability or fitness for a particular purpose.
- 
- =cut
-
-END_OF_FILE
-
       'Template/Perlish.pm' => <<'END_OF_FILE',
  package Template::Perlish;
  
- $VERSION = '1.21';
+ $VERSION = '1.30_01';
  
  use 5.008_000;
  use warnings;
@@ -320,8 +465,8 @@ END_OF_FILE
        $line_no += ($starter =~ tr/\n//);
  
        if (length $code) {
-          if ($code =~ m{\A\s* \w+(?:\.\w+)* \s*\z}mxs) {
-             $compiled .= _variable($code);
+          if (my $path = _smart_split($code)) {
+             $compiled .= _variable($path);
           }
           elsif (my ($scalar) = $code =~ m{\A\s* (\$ [a-zA-Z_]\w*) \s*\z}mxs) {
              $compiled .= "\nprint {*STDOUT} $scalar; ### straight scalar\n\n";
@@ -350,6 +495,28 @@ END_OF_FILE
     };
  }
  
+ sub _V {
+    my $value = shift;
+    for my $chunk (@_) {
+       if (ref($value) eq 'HASH') {
+          $value = $value->{$chunk};
+       }
+       elsif (ref($value) eq 'ARRAY') {
+          $value = $value->[$chunk];
+       }
+       else {
+          return '';
+       }
+    }
+    return defined($value) ? $value : '';
+ }
+ 
+ sub V { return '' }
+ sub A { return }
+ sub H { return }
+ sub HK { return }
+ sub HV { return }
+ 
  sub _compile_sub {
     my ($self, $outcome) = @_;
  
@@ -360,6 +527,30 @@ END_OF_FILE
        $outcome->{sub} = eval <<"END_OF_CODE";
     sub {
        my \%variables = (\%{\$self->{variables}}, \%{shift || {}});
+ 
+       no warnings 'redefine';
+       local *V = sub {
+          my \$path = _smart_split(shift) or return '';
+          return _V(\\\%variables, \@\$path);
+       };
+       local *A = sub {
+          my \$v = V(shift) or return;
+          return \@\$v;
+       };
+       local *H = sub {
+          my \$v = V(shift) or return;
+          return \%\$v;
+       };
+       local *HK = sub {
+          my \$v = V(shift) or return;
+          return keys \%\$v;
+       };
+       local *HV = sub {
+          my \$v = V(shift) or return;
+          return values \%\$v;
+       };
+       use warnings 'redefine';
+ 
        local *STDOUT;
        open STDOUT, '>', \\my \$buffer or croak "open(): \$OS_ERROR";
        binmode STDOUT, ':encoding(utf8)' if $utf8;
@@ -432,27 +623,61 @@ END_OF_FILE
  END_OF_CHUNK
  } ## end sub _simple_text
  
+ sub _smart_split {
+    my ($input) = @_;
+    $input =~ s{\A\s+|\s+\z}{}gmxs;
+ 
+    my $sq = qr{(?mxs: ' [^']* ' )};
+    my $dq = qr{(?mxs: " (?:[^\\"] | \\.)* " )};
+    my $ud = qr{(?mxs: \w+ )};
+    my $chunk = qr{(?mxs: $sq | $dq | $ud)+};
+ 
+    # save and reset current pos() on $input
+    my $prepos = pos($input);
+    pos($input) = undef;
+ 
+    my @path;
+    push @path, $1 while $input =~ m{\G \.? ($chunk) }cgmxs;
+ 
+    # save and restore pos() on $input
+    my $postpos = pos($input);
+    pos($input) = $prepos;
+ 
+    return unless defined $postpos;
+    return if $postpos != length($input);
+ 
+    # cleanup @path components
+    for my $part (@path) {
+       my @subparts;
+       while ((pos($part) // 0) < length($part)) {
+          if ($part =~ m{\G ($sq) }cgmxs) {
+             push @subparts, substr $1, 1, length($1) - 2;
+          }
+          elsif ($part =~ m{\G ($dq) }cgmxs) {
+             my $subpart = substr $1, 1, length($1) - 2;
+             $subpart =~ s{\\(.)}{$1}gmxs;
+             push @subparts, $subpart;
+          }
+          elsif ($part =~ m{\G ($ud) }cgmxs) {
+             push @subparts, $1;
+          }
+          else { # shouldn't happen ever
+             return;
+          }
+       }
+       $part = join '', @subparts;
+    }
+    return \@path;
+ }
+ 
  sub _variable {
     my $path = shift;
-    $path =~ s/\A\s+|\s+\z//mxsg;
+    my $DQ = '"';
+    $path = join ', ', map { $DQ . quotemeta($_) . $DQ } @$path;
+ 
     return <<"END_OF_CHUNK";
  ### Variable from \%variables stash
- {
-    my \$value = \\\%variables;
-    for my \$chunk (split /\\./, '$path') {
-       if (ref(\$value) eq 'HASH') {
-          \$value = \$value->{\$chunk};
-       }
-       elsif (ref(\$value) eq 'ARRAY') {
-          \$value = \$value->[\$chunk];
-       }
-       else {
-          \$value = undef;
-          last;
-       }
-    }
-    print {*STDOUT} \$value if defined \$value;
- }
+ print {*STDOUT} _V(\\\%variables, $path);
  
  END_OF_CHUNK
  } ## end sub _variable
@@ -483,7 +708,7 @@ END_OF_FILE
  
  =head1 VERSION
  
- This document describes Template::Perlish version 1.21. Most likely, this
+ This document describes Template::Perlish version 1.40. Most likely, this
  version number here is outdate, and you should peek the source.
  
  
@@ -604,6 +829,13 @@ END_OF_FILE
  
  you have to explicitly code everything that goes beyond simple variable
  stuffing into a template.
+ 
+ =item *
+ 
+ if you care about security, you MUST look elsewhere. There are I<string>
+ C<eval>s inside Template::Perlish, so you must be 100% or more sure that
+ you trust your templates. Don't trust them if you don't write them
+ yourself, and even in that case be suspicious.
  
  =back
  
@@ -876,12 +1108,52 @@ END_OF_FILE
  
  The former is cleaner, but the latter is more powerful of course.
  
+ As of release 1.40, Template::Perlish also allows you to use more
+ complex variable names in your data structure and your template, without
+ having to resort to the second form. It will suffice to quote the
+ relevant parts where you want to put non-alphanumeric keys, e.g.:
+ 
+    '$whatever'.'...'."with '\" quotes"
+ 
+ The quoting rules for this feature added in 1.40 are the following:
+ 
+ =over
+ 
+ =item * B<< single quotes >>
+ 
+ are paired and can contain any character inside, except a single quote.
+ Use double quotes if you need to put single quotes. The quotes
+ themselves are stripped away before figuring out what the key is;
+ 
+ =item * B<< double quotes >>
+ 
+ are paired and can contain any character inside, with some care. If you
+ need to put double quotes inside, you have to escape with a backslash.
+ Also, if you want to insert a literal backslash, you have to prepend it
+ with another backslash. In general, every time you put a backslash, the
+ following character is taken as-is and the escaping backslash is tossed
+ away. So the following:
+ 
+    "\'\a\ \v\e\r\y\ \s\t\r\a\n\g\e\ \k\e\y\'"
+ 
+ is interpreted as:
+ 
+    'a very strange key'
+ 
+ (including the single quotes).
+ 
+ =item * B<< the rest >>
+ 
+ must be alphanumeric only, like it was before.
+ 
+ =back
+ 
  If you happen to have a value you want to print inside a simple scalar
  variable, instead of:
  
     [% print $variable; %]
  
- you can also you the short form:
+ you can also use the short form:
  
    [% $variable %]
  
@@ -916,6 +1188,12 @@ END_OF_FILE
  
  Take care to always terminate your commands with a C<;> each time
  you would do it in actual code.
+ 
+ As of version 1.40, there are also a few functions that will make your
+ life easy if you want to access the variables, namely L</V> to access a
+ variable provided its dotted-path representation, L</A> for expanding
+ the variable as an array, L</H> to expand it as a hash, and L</HK> and
+ L</HV> to get the keys and values of a hash, respectively.
  
  There's no escaping mechanism, so if you want to include literal
  C<[%> or C<%]> you either have to change delimiters, or you have to
@@ -952,6 +1230,70 @@ END_OF_FILE
  Including the starter in the Perl code is not a problem, of course.
  
  So the bottom line is: who needs escaping?
+ 
+ =head2 Variables Accessors
+ 
+ =over
+ 
+ =item B<< A >>
+ 
+    A 'path.to.arrayref'
+ 
+ get the variable at the specific path and expand it as array. This can
+ be useful if you want to iterate over a variable that you know is an
+ array reference:
+ 
+    [% for my $item (A 'my.array') { ... } %]
+ 
+ is equivalent to:
+ 
+    [% for my $item (@{$variables{my}{array}}) { ... } %]
+ 
+ but more concise and a little more readable.
+ 
+ =item B<< H >>
+ 
+    H 'path.to.hashref'
+ 
+ get the variable at the specific path and expand it as hash.
+ 
+ =item B<< HK >>
+ 
+    HK 'path.to.hashref'
+ 
+ get the variable at the specific path, expand it as hash and get its
+ keys. This can be useful if you want to iterate over the keys of a
+ variable that you know is an hash reference:
+ 
+    [% for my $key (HK 'my.hash') { ... } %]
+ 
+ is equivalent to:
+ 
+    [% for my $key (keys %{$variables{my}{hash}}) { ... } %]
+ 
+ but more concise and a bit more readable.
+ 
+ =item B<< HV >>
+ 
+    HV 'path.to.hashref'
+ 
+ similar to L</HK>, but provides values instead of keys.
+ 
+ =item B<< V >>
+ 
+    V 'path.to.variable'
+ 
+ get the variable at the specific path. The following:
+ 
+    [%= V('path.to.variable') + 1 %]
+ 
+ is the same as:
+ 
+    [%= $variables{path}{to}{variable} + 1 %]
+ 
+ but shorter and more readable.
+ 
+ =back
  
  =head1 DIAGNOSTICS
  
@@ -1012,7 +1354,7 @@ END_OF_FILE
  Flavio Poletti <polettix@cpan.org>
  
  
- =head1 LICENCE AND COPYRIGHT
+ =head1 LICENSE AND COPYRIGHT
  
  Copyright (c) 2008, 2015 by Flavio Poletti polettix@cpan.org.
  
@@ -1025,19 +1367,15 @@ END_OF_FILE
  
  =head1 SEE ALSO
  
- The best templating system in the world is undoubtfully L<Template::Toolkit>.
+ The best templating system in the world is undoubtfully
+ L<Template::Toolkit>.
  
- See L<http://perl.apache.org/docs/tutorials/tmpl/comparison/comparison.html>
- for a comparison (and a fairly complete list) of different templating modules.
+ See
+ L<http://perl.apache.org/docs/tutorials/tmpl/comparison/comparison.html>
+ for a comparison (and a fairly complete list) of different templating
+ modules.
  
  =cut
-
-END_OF_FILE
-
-      'Mo/default.pm' => <<'END_OF_FILE',
- package Mo::default;my$M="Mo::";
- $VERSION=0.39;
- *{$M.'default::e'}=sub{my($P,$e,$o)=@_;$o->{default}=sub{my($m,$n,%a)=@_;exists$a{default}or return$m;my($d,$r)=$a{default};my$g='HASH'eq($r=ref$d)?sub{+{%$d}}:'ARRAY'eq$r?sub{[@$d]}:'CODE'eq$r?$d:sub{$d};my$i=exists$a{lazy}?$a{lazy}:!${$P.':N'};$i or ${$P.':E'}{$n}=$g and return$m;sub{$#_?$m->(@_):!exists$_[0]{$n}?$_[0]{$n}=$g->(@_):$m->(@_)}}};
 
 END_OF_FILE
 
@@ -3844,10 +4182,64 @@ END_OF_FILE
 
 END_OF_FILE
 
-      'Mo.pm' => <<'END_OF_FILE',
- package Mo;
- $VERSION=0.39;
- no warnings;my$M=__PACKAGE__.'::';*{$M.Object::new}=sub{my$c=shift;my$s=bless{@_},$c;my%n=%{$c.::.':E'};map{$s->{$_}=$n{$_}->()if!exists$s->{$_}}keys%n;$s};*{$M.import}=sub{import warnings;$^H|=1538;my($P,%e,%o)=caller.'::';shift;eval"no Mo::$_",&{$M.$_.::e}($P,\%e,\%o,\@_)for@_;return if$e{M};%e=(extends,sub{eval"no $_[0]()";@{$P.ISA}=$_[0]},has,sub{my$n=shift;my$m=sub{$#_?$_[0]{$n}=$_[1]:$_[0]{$n}};@_=(default,@_)if!($#_%2);$m=$o{$_}->($m,$n,@_)for sort keys%o;*{$P.$n}=$m},%e,);*{$P.$_}=$e{$_}for keys%e;@{$P.ISA}=$M.Object};
+      'Data/Crumbr/Default/Default.pm' => <<'END_OF_FILE',
+ package Data::Crumbr::Default::Default;
+ $Data::Crumbr::Default::Default::VERSION = '0.1.0';
+ # ABSTRACT: "Default" profile for Data::Crumbr::Default
+ 
+ # Default is default... nothing is set here!
+ sub profile { return {}; }
+ 
+ 1;
+ 
+ __END__
+ 
+ =pod
+ 
+ =encoding utf-8
+ 
+ =head1 NAME
+ 
+ Data::Crumbr::Default::Default - "Default" profile for Data::Crumbr::Default
+ 
+ =head1 VERSION
+ 
+ version 0.1.0
+ 
+ =head1 DESCRIPTION
+ 
+ Profile for default (exact) encoder
+ 
+ =head1 INTERFACE
+ 
+ =over
+ 
+ =item B<< profile >>
+ 
+    my $profile = Data::Crumbr::Default::Default->profile();
+ 
+ returns a default profile, i.e. encoder data to be used to instantiate a
+ Data::Crumbr::Default encoder. See L</Data::Crumbr> for details about
+ this profile.
+ 
+ =back
+ 
+ =head1 AUTHOR
+ 
+ Flavio Poletti <polettix@cpan.org>
+ 
+ =head1 COPYRIGHT AND LICENSE
+ 
+ Copyright (C) 2015 by Flavio Poletti <polettix@cpan.org>
+ 
+ This module is free software.  You can redistribute it and/or
+ modify it under the terms of the Artistic License 2.0.
+ 
+ This program is distributed in the hope that it will be useful,
+ but without any warranty; without even the implied warranty of
+ merchantability or fitness for a particular purpose.
+ 
+ =cut
 
 END_OF_FILE
 
@@ -4480,6 +4872,43 @@ END_OF_FILE
  merchantability or fitness for a particular purpose.
  
  =cut
+
+END_OF_FILE
+
+      'JSON/PP/Boolean.pm' => <<'END_OF_FILE',
+ =head1 NAME
+ 
+ JSON::PP::Boolean - dummy module providing JSON::PP::Boolean
+ 
+ =head1 SYNOPSIS
+ 
+  # do not "use" yourself
+ 
+ =head1 DESCRIPTION
+ 
+ This module exists only to provide overload resolution for Storable and similar modules. See
+ L<JSON::PP> for more info about this class.
+ 
+ =cut
+ 
+ use JSON::PP ();
+ use strict;
+ 
+ 1;
+ 
+ =head1 AUTHOR
+ 
+ This idea is from L<JSON::XS::Boolean> written by Marc Lehmann <schmorp[at]schmorp.de>
+ 
+ =cut
+ 
+
+END_OF_FILE
+
+      'Mo.pm' => <<'END_OF_FILE',
+ package Mo;
+ $VERSION=0.39;
+ no warnings;my$M=__PACKAGE__.'::';*{$M.Object::new}=sub{my$c=shift;my$s=bless{@_},$c;my%n=%{$c.::.':E'};map{$s->{$_}=$n{$_}->()if!exists$s->{$_}}keys%n;$s};*{$M.import}=sub{import warnings;$^H|=1538;my($P,%e,%o)=caller.'::';shift;eval"no Mo::$_",&{$M.$_.::e}($P,\%e,\%o,\@_)for@_;return if$e{M};%e=(extends,sub{eval"no $_[0]()";@{$P.ISA}=$_[0]},has,sub{my$n=shift;my$m=sub{$#_?$_[0]{$n}=$_[1]:$_[0]{$n}};@_=(default,@_)if!($#_%2);$m=$o{$_}->($m,$n,@_)for sort keys%o;*{$P.$n}=$m},%e,);*{$P.$_}=$e{$_}for keys%e;@{$P.ISA}=$M.Object};
 
 END_OF_FILE
 
@@ -5977,322 +6406,6 @@ END_OF_FILE
 
 END_OF_FILE
 
-      'Mo/coerce.pm' => <<'END_OF_FILE',
- package Mo::coerce;my$M="Mo::";
- $VERSION=0.39;
- *{$M.'coerce::e'}=sub{my($P,$e,$o)=@_;$o->{coerce}=sub{my($m,$n,%a)=@_;$a{coerce}or return$m;sub{$#_?$m->($_[0],$a{coerce}->($_[1])):$m->(@_)}};my$C=$e->{new}||*{$M.Object::new}{CODE};$e->{new}=sub{my$s=$C->(@_);$s->$_($s->{$_})for keys%$s;$s}};
-
-END_OF_FILE
-
-      'Data/Crumbr/Default/Default.pm' => <<'END_OF_FILE',
- package Data::Crumbr::Default::Default;
- $Data::Crumbr::Default::Default::VERSION = '0.1.0';
- # ABSTRACT: "Default" profile for Data::Crumbr::Default
- 
- # Default is default... nothing is set here!
- sub profile { return {}; }
- 
- 1;
- 
- __END__
- 
- =pod
- 
- =encoding utf-8
- 
- =head1 NAME
- 
- Data::Crumbr::Default::Default - "Default" profile for Data::Crumbr::Default
- 
- =head1 VERSION
- 
- version 0.1.0
- 
- =head1 DESCRIPTION
- 
- Profile for default (exact) encoder
- 
- =head1 INTERFACE
- 
- =over
- 
- =item B<< profile >>
- 
-    my $profile = Data::Crumbr::Default::Default->profile();
- 
- returns a default profile, i.e. encoder data to be used to instantiate a
- Data::Crumbr::Default encoder. See L</Data::Crumbr> for details about
- this profile.
- 
- =back
- 
- =head1 AUTHOR
- 
- Flavio Poletti <polettix@cpan.org>
- 
- =head1 COPYRIGHT AND LICENSE
- 
- Copyright (C) 2015 by Flavio Poletti <polettix@cpan.org>
- 
- This module is free software.  You can redistribute it and/or
- modify it under the terms of the Artistic License 2.0.
- 
- This program is distributed in the hope that it will be useful,
- but without any warranty; without even the implied warranty of
- merchantability or fitness for a particular purpose.
- 
- =cut
-
-END_OF_FILE
-
-      'Data/Crumbr/Default.pm' => <<'END_OF_FILE',
- package Data::Crumbr::Default;
- $Data::Crumbr::Default::VERSION = '0.1.0';
- # ABSTRACT: Default renderer for Data::Crumbr
- 
- use Mo qw< default coerce >;
- 
- use 5.018;
- use strict;
- use warnings;
- use Carp;
- use English qw< -no_match_vars >;
- use Scalar::Util qw< blessed >;
- use Data::Crumbr::Util;
- 
- my $jenc = Data::Crumbr::Util::json_leaf_encoder();
- my $ienc = Data::Crumbr::Util::id_encoder();
- 
- has array_open        => (default => sub { '' });
- has array_close       => (default => sub { '' });
- has array_key_prefix  => (default => sub { '[' });
- has array_key_suffix  => (default => sub { ']' });
- has array_key_encoder => (default => sub { $ienc });
- has hash_open         => (default => sub { '' });
- has hash_close        => (default => sub { '' });
- has hash_key_prefix   => (default => sub { '{' });
- has hash_key_suffix   => (default => sub { '}' });
- has hash_key_encoder  => (default => sub { $jenc });
- has value_encoder     => (default => sub { $jenc });
- has keys_separator    => (default => sub { '' });
- has value_separator   => (default => sub { ':' });
- 
- has output => (
-    default => sub { __output() },
-    coerce  => \&__output,
- );
- 
- sub __output {
-    my ($output) = @_;
-    $output //= [];
-    my $reftype = ref $output;
- 
-    if (!$reftype) {    # filename, transform into filehandle
-       my $fh = \*STDOUT;
-       if ($output ne '-') {
-          $fh = undef;
-          open $fh, '>', $output
-            or croak "open('$output'): $OS_ERROR";
-       }
-       binmode $fh, ':raw'
-         or croak "binmode() on $output: $OS_ERROR";
-       $reftype = ref($output = $fh);
-    } ## end if (!$reftype)
- 
-    return sub {
-       return unless @_;
-       print {$output} $_[0], "\n";
-      }
-      if $reftype eq 'GLOB';
- 
-    return sub {
-       return $output unless @_;
-       push @$output, $_[0];
-      }
-      if $reftype eq 'ARRAY';
- 
-    return sub {
-       return unless @_;
-       $output->print($_[0]);
-      }
-      if blessed($output);
- 
-    return sub {
-       return unless @_;
-       return $output->($_[0]);
-      }
-      if $reftype eq 'CODE';
- 
-    croak "invalid output";
- } ## end sub __output
- 
- sub leaf {
-    my ($self, $stack) = @_;
- 
-    my $venc       = $self->value_encoder();
-    my @components = $venc->($stack->[-1]{data});
- 
-    my @keys = map { $_->{encoded} } @$stack;
-    shift @keys;    # first item of @$stack is dummy
-    pop @keys;      # last item of @$stack is the leaf, drop it
- 
-    my $closers = '';
-    if (@keys) {
-       unshift @components, join $self->keys_separator(), @keys;
-       $closers = $stack->[-2]{closers};
-    }
- 
-    my $record = join $self->value_separator(), @components;
-    $self->output()->($record . $closers);
- } ## end sub leaf
- 
- {
-    no strict 'refs';
-    *scalar_leaf = \&leaf;
-    *array_leaf  = \&leaf;
-    *hash_leaf   = \&leaf;
- }
- 
- sub array_keys_iterator {
-    my ($self, $aref) = @_;
-    my $i   = 0;
-    my $sup = @$aref;
-    return sub {
-       return if $i >= $sup;
-       return $i++;
-    };
- } ## end sub array_keys_iterator
- 
- sub hash_keys_iterator {
-    my ($self, $href) = @_;
-    my @keys = sort keys %$href;    # memory intensive...
-    return sub { return shift @keys };
- }
- 
- sub array_key {
-    my ($self, $key) = @_;
-    return join '', $self->array_open(),
-      $self->array_key_prefix(),
-      $self->array_key_encoder()->($key),
-      $self->array_key_suffix();
- } ## end sub array_key
- 
- sub hash_key {
-    my ($self, $key) = @_;
-    return join '', $self->hash_open(),
-      $self->hash_key_prefix(),
-      $self->hash_key_encoder()->($key),
-      $self->hash_key_suffix();
- } ## end sub hash_key
- 
- sub result {
-    my ($self) = @_;
-    my $output = $self->output()->()
-      or return;
-    return join "\n", @$output;
- } ## end sub result
- 
- sub reset {
-    my ($self) = @_;
-    my $output = $self->output()->()
-      or return;
-    @$output = ();
-    return;
- } ## end sub reset
- 
- 1;
- 
- __END__
- 
- =pod
- 
- =encoding utf-8
- 
- =head1 NAME
- 
- Data::Crumbr::Default - Default renderer for Data::Crumbr
- 
- =head1 VERSION
- 
- version 0.1.0
- 
- =head1 DESCRIPTION
- 
- This is the default encoder implementation, and most probably the only
- oney you really need. And most probably, you really not need to directly
- use it.
- 
- =head1 INTERFACE
- 
- =over
- 
- =item B<< array_key >>
- 
- returns the encoded array key, optionally opening an array and keeping
- into account the prefix, the suffix and the encoder for the key
- 
- =item B<< array_keys_iterator >>
- 
- returns an iterator sub starting from 0 up to the number of elements in
- the array
- 
- =item B<< hash_key >>
- 
- returns the encoded hash key, optionally opening an hash and keeping
- into account the prefix, the suffix and the encoder for the key
- 
- =item B<< hash_keys_iterator >>
- 
- returns an iterator sub that returns each key in the input hash, sorted
- lexicographically
- 
- =item B<< leaf >>
- 
- =item B<< array_leaf >>
- 
- =item B<< hash_leaf >>
- 
- =item B<< scalar_leaf >>
- 
- this method is called whenever an external iteration component hits a
- leaf and wants to push a new encoded record to the output
- 
- =item B<< new >>
- 
-    my $enc = Data::Crumbr::Default->new(%args);
- 
- create a new encoder object
- 
- =item B<< reset >>
- 
- reset the encoder, i.e. wipe out all the internal state to start a new
- encoding cycle.
- 
- =item B<< result >>
- 
- get the outcome of the encoding. Not guaranteed to work.
- 
- =back
- 
- =head1 AUTHOR
- 
- Flavio Poletti <polettix@cpan.org>
- 
- =head1 COPYRIGHT AND LICENSE
- 
- Copyright (C) 2015 by Flavio Poletti <polettix@cpan.org>
- 
- This module is free software.  You can redistribute it and/or
- modify it under the terms of the Artistic License 2.0.
- 
- This program is distributed in the hope that it will be useful,
- but without any warranty; without even the implied warranty of
- merchantability or fitness for a particular purpose.
- 
- =cut
-
-END_OF_FILE
-
       'Data/Crumbr/Util.pm' => <<'END_OF_FILE',
  package Data::Crumbr::Util;
  $Data::Crumbr::Util::VERSION = '0.1.0';
@@ -6466,6 +6579,93 @@ END_OF_FILE
 
 END_OF_FILE
 
+      'Data/Crumbr/Default/JSON.pm' => <<'END_OF_FILE',
+ package Data::Crumbr::Default::JSON;
+ $Data::Crumbr::Default::JSON::VERSION = '0.1.0';
+ # ABSTRACT: "JSON" profile for Data::Crumbr::Default
+ use Data::Crumbr::Util;
+ 
+ sub profile {
+    my $json_encoder = Data::Crumbr::Util::json_leaf_encoder();
+    return {
+       hash_open       => '{',
+       hash_key_prefix => '',
+       hash_key_suffix => ':',
+       hash_close      => '}',
+ 
+       array_open       => '[',
+       array_key_prefix => '',
+       array_key_suffix => '',
+       array_close      => ']',
+ 
+       keys_separator    => '',
+       value_separator   => '',
+       array_key_encoder => sub { },
+       hash_key_encoder  => $json_encoder,
+       value_encoder     => $json_encoder,
+    };
+ } ## end sub profile
+ 
+ 1;
+ 
+ __END__
+ 
+ =pod
+ 
+ =encoding utf-8
+ 
+ =head1 NAME
+ 
+ Data::Crumbr::Default::JSON - "JSON" profile for Data::Crumbr::Default
+ 
+ =head1 VERSION
+ 
+ version 0.1.0
+ 
+ =head1 DESCRIPTION
+ 
+ Profile for JSON encoder
+ 
+ =head1 INTERFACE
+ 
+ =over
+ 
+ =item B<< profile >>
+ 
+    my $profile = Data::Crumbr::Default::JSON->profile();
+ 
+ returns a default profile, i.e. encoder data to be used to instantiate a
+ Data::Crumbr::Default encoder. See L</Data::Crumbr> for details about
+ this profile.
+ 
+ =back
+ 
+ =head1 AUTHOR
+ 
+ Flavio Poletti <polettix@cpan.org>
+ 
+ =head1 COPYRIGHT AND LICENSE
+ 
+ Copyright (C) 2015 by Flavio Poletti <polettix@cpan.org>
+ 
+ This module is free software.  You can redistribute it and/or
+ modify it under the terms of the Artistic License 2.0.
+ 
+ This program is distributed in the hope that it will be useful,
+ but without any warranty; without even the implied warranty of
+ merchantability or fitness for a particular purpose.
+ 
+ =cut
+
+END_OF_FILE
+
+      'Mo/coerce.pm' => <<'END_OF_FILE',
+ package Mo::coerce;my$M="Mo::";
+ $VERSION=0.39;
+ *{$M.'coerce::e'}=sub{my($P,$e,$o)=@_;$o->{coerce}=sub{my($m,$n,%a)=@_;$a{coerce}or return$m;sub{$#_?$m->($_[0],$a{coerce}->($_[1])):$m->(@_)}};my$C=$e->{new}||*{$M.Object::new}{CODE};$e->{new}=sub{my$s=$C->(@_);$s->$_($s->{$_})for keys%$s;$s}};
+
+END_OF_FILE
+
    );
 
    unshift @INC, sub {
@@ -6534,7 +6734,8 @@ my $template = read_template(\%config);
    *Template::Perlish::json_crumbr = sub { $crumbr->('JSON') };
 }
 my $ofh      = get_output_fh($config{output}, $config{binmode});
-print {$ofh} render($template, $vars);
+my $output = render($template, $vars);
+print {$ofh} $output if defined $output;
 print {$ofh} "\n" if $config{newline};
 
 sub get_output_fh {
@@ -6735,6 +6936,8 @@ from files or from standard input. This should make it easy to extract
 the needed data e.g. out of the output from some tool that provides you
 structured JSON or YAML text in output.
 
+=head2 Options Overview
+
 Input data structures can be provided via option L<-i | --input>. You
 can provide more than one input; in this case, they will be read in
 order and merged together. Merging in this case means that whatever is
@@ -6768,6 +6971,277 @@ Output is sent to either standard output (by default or if you set the
 filename to C<->) or to the filename specified via option C</--output>.
 Output will be printed assuming that the receiving end is UTF-8 capable.
 
+=head2 Writing Templates
+
+Templates for extracting data are written according to what
+Template::Perlish provides. You should take a look at its documentation
+at L<https://metacpan.org/pod/Template::Perlish>. Only a few tricks will
+be reported here, just to get your feet wet.
+
+We will suppose to have the following data, represented as YAML:
+
+   ---
+   key1: value1
+   key2: value2
+   array:
+      - first
+      - second
+      - third
+      -
+         k1: v1
+         k2: v2
+   hash:
+      one: two
+      three: four
+      five:
+         - a
+         - b
+         - 'see...'
+      'complex key': whatever
+
+Values that are neither hashes/objects nor arrays will be called
+I<scalars>.
+
+So, we have a hash at the top level, with four keys (C<key1>, C<key2>,
+C<array> and C<hash>), two of which are scalars, one is an array and one
+is a hash. The array contains four items, the last of which is a hash
+with two keys (C<k1> and C<k2>). The hash contains three keys, the first
+two (C<one> and C<three>) associated to a scalar value, the last one
+being an array with three strings inside.
+
+If you want to just access scalar variable pointed by key C<three>
+inside C<hash>, it is sufficient to provide the I<path> to that value as
+a sequence of keys starting from the top level and separated by a dot,
+like this:
+
+   [% hash.three %]
+
+If you want to access an array's element, the trick is similar but you
+will have to use the index (starting from 0) instead of the key. So, for
+example, the C<b> in the second array would be accessed like this:
+
+   [% hash.five.1 %]
+
+and the C<v1> like this:
+
+   [% array.3.k1 %]
+
+Please note that, by default, the keys that you can concatenate can only
+contain alphanumeric values, plus the underscore. What if you want to
+access C<whatever> then? You can insert non-alphanumeric characters
+using quotes, like this:
+
+   [% hash.'complex key' %]
+
+As you can imagine, there are ways to also cope with keys that have
+quotes inside, so refer to Template::Perlish if you need to know more.
+
+Besides just accessing scalar values, you might want to add some logic
+to your templates. You can do this by simply writing Perl code, because
+whatever is not recognised as a valid I<path of keys> is considered Perl
+code and evaluated accordingly:
+
+   current time: [% print scalar localtime() %]
+
+There is even a shortcut to just print the output of an expression, so
+the above example can be written like this:
+
+   current time: [%= scalar localtime() %]
+
+(note that there is an equal sign just after the template opening).
+
+When you are writing Perl code, you can access the data structure
+through the hash variable C<%variables>, so the following are
+equivalent:
+
+   [% hash.'complex key' %]
+   [%= $variables{hash}{'complex key'} %]
+
+but of course you can do fancier things with the second one, like this:
+
+   uppercase: [%= uc $variables{hash}{'complex key'} %]
+
+Accessing variables like this can be boring if you have a deeply nested
+data structure, because it's a lot of typing and a lot of curly
+brackets. To save typing and time, you can use the shortcut function
+C<V>, so the following are equivalent:
+
+   [%  hash.'complex key' %]
+   [%= $variables{hash}{'complex key'} %]
+   [%= V("hash.'complex key'") %]
+
+As you are probably guessing, C<V> uses the same algorithm as just
+putting a plain sequence of path elements, including its restrictions on
+non-alphanumeric characters. This is considered a feature, because it
+adds consistency.
+
+Just like you can access any variable with C<V>, you also have a few
+additional functions at your disposal for some common tasks. For
+example, sometimes you will want to iterate over an array and find just
+those elements that have some characteristics, e.g. restricting only to
+elements that are hashes containing the C<k1> key. The long version is
+this, of course:
+
+   [%
+      for my $item (@{$variables{array}}) {
+         next unless ref($item) eq 'HASH';
+         next unless exists $item->{k1};
+         print $item->{k1};
+         last;
+      }
+   %]
+
+You can use the C<V> shortcut, of course:
+
+   [%
+      for my $item (@{V('array')}) {
+         next unless ref($item) eq 'HASH';
+         next unless exists $item->{k1};
+         print $item->{k1};
+         last;
+      }
+   %]
+
+although in this case you would probably use C<A> instead:
+
+   [%
+      for my $item (A 'array') {
+         next unless ref($item) eq 'HASH';
+         next unless exists $item->{k1};
+         print $item->{k1};
+         last;
+      }
+   %]
+
+This takes the element at path C<array> from C<%variables>, expands it
+as an array and... well, what you do with it is completely up to you, of
+course.
+
+=head2 Feeling Better With C<grep>?
+
+If you're not very comfortable with Perl... you should. There are a lot
+of very good resources out there to learn it, the most outstanding
+and readily available example is probably Modern Perl
+(L<http://onyxneon.com/books/modern_perl/index.html>, look for both the
+printed and online version).
+
+Anyway, if you're in a hurry and you prefer to use C<grep>/C<sed> and
+all other classical Unix tools, you can turn on I<crumbr> mode and play
+with its output.
+
+To understand what crumbr does, let's start from an example, i.e. let's
+see what this does when applied to the example data structure described
+in L</Writing Templates>. The template is quite straightforward in this
+case:
+
+   $ teepee -T '[% crumbr(); %]' -i data.yml
+
+and the output is the following:
+
+   array/0 "first"
+   array/1 "second"
+   array/2 "third"
+   array/3/k1 "v1"
+   array/3/k2 "v2"
+   hash/complex%20key "whatever"
+   hash/five/0 "a"
+   hash/five/1 "b"
+   hash/five/2 "see..."
+   hash/one "two"
+   hash/three "four"
+   key1 "value1"
+   key2 "value2"
+
+Every leaf node is represented on a single line of its own. Each line
+contains a URI-shaped path, a space, and a JSON-encoded representation
+of the value. Hash keys are sorted lexicographically, array keys are
+sorted numerically.
+
+So, are we still looking at the values pointed by key C<k1> inside any
+hash under the top-level array? This is how you do it:
+
+   $ teepee -T '[% crumbr(); %]' -i data.yml \
+     | grep '^array/[0-9][0-9]*/k1 '
+
+You get the idea.
+
+Why the JSON encoding in the output? Aren't those double quotes
+annoying? The answer is probably yes, but they are also needed. In fact,
+there are a few cases where you will I<not> see them, namely:
+
+=over
+
+=item * B<< empty arrays >>
+
+are represented as C<[]>, without quotes
+
+=item * B<< empty hashes >>
+
+are represented as C<{}>, without quotes
+
+=item * B<< null/undefined values >>
+
+are represented as I<null>, without quotes (as opposed to
+the string I<"null">, that has the quotes).
+
+=back
+
+Example:
+
+   $ cat sample.yaml
+   ---
+   'plain-value': ciao
+   'null-value': ~
+   'empty-array': []
+   'empty-hash': {}
+
+   $ teepee -T '[% crumbr(); %]' <sample.yaml
+   empty-array []
+   empty-hash {}
+   null-value null
+   plain-value "ciao"
+
+You have probably noticed that this does not allow you to clearly
+distinguish between hash/object keys and array indexes. Hopefully this
+does not concern you because you have a sane input data structure, but
+in case you want to remove any space for misunderstanding, you can use
+C<exact_crumbr> instead:
+
+   $ teepee -T '[% exact_crumbr(); %]' -i data.yml
+   {"array"}[0]:"first"
+   {"array"}[1]:"second"
+   {"array"}[2]:"third"
+   {"array"}[3]{"k1"}:"v1"
+   {"array"}[3]{"k2"}:"v2"
+   {"hash"}{"complex key"}:"whatever"
+   {"hash"}{"five"}[0]:"a"
+   {"hash"}{"five"}[1]:"b"
+   {"hash"}{"five"}[2]:"see..."
+   {"hash"}{"one"}:"two"
+   {"hash"}{"three"}:"four"
+   {"key1"}:"value1"
+   {"key2"}:"value2"
+
+If you like, or need, to play with I<JSON subsets> instead, you might
+find C<json_crumbr> interesting:
+
+   $ teepee -T '[% json_crumbr(); %]' -i data.yml
+   {"array":["first"]}
+   {"array":["second"]}
+   {"array":["third"]}
+   {"array":[{"k1":"v1"}]}
+   {"array":[{"k2":"v2"}]}
+   {"hash":{"complex key":"whatever"}}
+   {"hash":{"five":["a"]}}
+   {"hash":{"five":["b"]}}
+   {"hash":{"five":["see..."]}}
+   {"hash":{"one":"two"}}
+   {"hash":{"three":"four"}}
+   {"key1":"value1"}
+   {"key2":"value2"}
+
+In this case, each line is a valid JSON data structure with one single
+leaf value only.
 
 =head1 OPTIONS
 
