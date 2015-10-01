@@ -40,6 +40,8 @@ from files or from standard input. This should make it easy to extract
 the needed data e.g. out of the output from some tool that provides you
 structured JSON or YAML text in output.
 
+## Options Overview
+
 Input data structures can be provided via option [-i ](https://metacpan.org/pod/&#x20;--input). You
 can provide more than one input; in this case, they will be read in
 order and merged together. Merging in this case means that whatever is
@@ -72,6 +74,274 @@ doubt, just use a UTF-8 encoded file for your template.
 Output is sent to either standard output (by default or if you set the
 filename to `-`) or to the filename specified via option `/--output`.
 Output will be printed assuming that the receiving end is UTF-8 capable.
+
+## Writing Templates
+
+Templates for extracting data are written according to what
+Template::Perlish provides. You should take a look at its documentation
+at [https://metacpan.org/pod/Template::Perlish](https://metacpan.org/pod/Template::Perlish). Only a few tricks will
+be reported here, just to get your feet wet.
+
+We will suppose to have the following data, represented as YAML:
+
+    ---
+    key1: value1
+    key2: value2
+    array:
+       - first
+       - second
+       - third
+       -
+          k1: v1
+          k2: v2
+    hash:
+       one: two
+       three: four
+       five:
+          - a
+          - b
+          - 'see...'
+       'complex key': whatever
+
+Values that are neither hashes/objects nor arrays will be called
+_scalars_.
+
+So, we have a hash at the top level, with four keys (`key1`, `key2`,
+`array` and `hash`), two of which are scalars, one is an array and one
+is a hash. The array contains four items, the last of which is a hash
+with two keys (`k1` and `k2`). The hash contains three keys, the first
+two (`one` and `three`) associated to a scalar value, the last one
+being an array with three strings inside.
+
+If you want to just access scalar variable pointed by key `three`
+inside `hash`, it is sufficient to provide the _path_ to that value as
+a sequence of keys starting from the top level and separated by a dot,
+like this:
+
+    [% hash.three %]
+
+If you want to access an array's element, the trick is similar but you
+will have to use the index (starting from 0) instead of the key. So, for
+example, the `b` in the second array would be accessed like this:
+
+    [% hash.five.1 %]
+
+and the `v1` like this:
+
+    [% array.3.k1 %]
+
+Please note that, by default, the keys that you can concatenate can only
+contain alphanumeric values, plus the underscore. What if you want to
+access `whatever` then? You can insert non-alphanumeric characters
+using quotes, like this:
+
+    [% hash.'complex key' %]
+
+As you can imagine, there are ways to also cope with keys that have
+quotes inside, so refer to Template::Perlish if you need to know more.
+
+Besides just accessing scalar values, you might want to add some logic
+to your templates. You can do this by simply writing Perl code, because
+whatever is not recognised as a valid _path of keys_ is considered Perl
+code and evaluated accordingly:
+
+    current time: [% print scalar localtime() %]
+
+There is even a shortcut to just print the output of an expression, so
+the above example can be written like this:
+
+    current time: [%= scalar localtime() %]
+
+(note that there is an equal sign just after the template opening).
+
+When you are writing Perl code, you can access the data structure
+through the hash variable `%variables`, so the following are
+equivalent:
+
+    [% hash.'complex key' %]
+    [%= $variables{hash}{'complex key'} %]
+
+but of course you can do fancier things with the second one, like this:
+
+    uppercase: [%= uc $variables{hash}{'complex key'} %]
+
+Accessing variables like this can be boring if you have a deeply nested
+data structure, because it's a lot of typing and a lot of curly
+brackets. To save typing and time, you can use the shortcut function
+`V`, so the following are equivalent:
+
+    [%  hash.'complex key' %]
+    [%= $variables{hash}{'complex key'} %]
+    [%= V("hash.'complex key'") %]
+
+As you are probably guessing, `V` uses the same algorithm as just
+putting a plain sequence of path elements, including its restrictions on
+non-alphanumeric characters. This is considered a feature, because it
+adds consistency.
+
+Just like you can access any variable with `V`, you also have a few
+additional functions at your disposal for some common tasks. For
+example, sometimes you will want to iterate over an array and find just
+those elements that have some characteristics, e.g. restricting only to
+elements that are hashes containing the `k1` key. The long version is
+this, of course:
+
+    [%
+       for my $item (@{$variables{array}}) {
+          next unless ref($item) eq 'HASH';
+          next unless exists $item->{k1};
+          print $item->{k1};
+          last;
+       }
+    %]
+
+You can use the `V` shortcut, of course:
+
+    [%
+       for my $item (@{V('array')}) {
+          next unless ref($item) eq 'HASH';
+          next unless exists $item->{k1};
+          print $item->{k1};
+          last;
+       }
+    %]
+
+although in this case you would probably use `A` instead:
+
+    [%
+       for my $item (A 'array') {
+          next unless ref($item) eq 'HASH';
+          next unless exists $item->{k1};
+          print $item->{k1};
+          last;
+       }
+    %]
+
+This takes the element at path `array` from `%variables`, expands it
+as an array and... well, what you do with it is completely up to you, of
+course.
+
+## Feeling Better With `grep`?
+
+If you're not very comfortable with Perl... you should. There are a lot
+of very good resources out there to learn it, the most outstanding
+and readily available example is probably Modern Perl
+([http://onyxneon.com/books/modern\_perl/index.html](http://onyxneon.com/books/modern_perl/index.html), look for both the
+printed and online version).
+
+Anyway, if you're in a hurry and you prefer to use `grep`/`sed` and
+all other classical Unix tools, you can turn on _crumbr_ mode and play
+with its output.
+
+To understand what crumbr does, let's start from an example, i.e. let's
+see what this does when applied to the example data structure described
+in ["Writing Templates"](#writing-templates). The template is quite straightforward in this
+case:
+
+    $ teepee -T '[% crumbr(); %]' -i data.yml
+
+and the output is the following:
+
+    array/0 "first"
+    array/1 "second"
+    array/2 "third"
+    array/3/k1 "v1"
+    array/3/k2 "v2"
+    hash/complex%20key "whatever"
+    hash/five/0 "a"
+    hash/five/1 "b"
+    hash/five/2 "see..."
+    hash/one "two"
+    hash/three "four"
+    key1 "value1"
+    key2 "value2"
+
+Every leaf node is represented on a single line of its own. Each line
+contains a URI-shaped path, a space, and a JSON-encoded representation
+of the value. Hash keys are sorted lexicographically, array keys are
+sorted numerically.
+
+So, are we still looking at the values pointed by key `k1` inside any
+hash under the top-level array? This is how you do it:
+
+    $ teepee -T '[% crumbr(); %]' -i data.yml \
+      | grep '^array/[0-9][0-9]*/k1 '
+
+You get the idea.
+
+Why the JSON encoding in the output? Aren't those double quotes
+annoying? The answer is probably yes, but they are also needed. In fact,
+there are a few cases where you will _not_ see them, namely:
+
+- **empty arrays**
+
+    are represented as `[]`, without quotes
+
+- **empty hashes**
+
+    are represented as `{}`, without quotes
+
+- **null/undefined values**
+
+    are represented as _null_, without quotes (as opposed to
+    the string _"null"_, that has the quotes).
+
+Example:
+
+    $ cat sample.yaml
+    ---
+    'plain-value': ciao
+    'null-value': ~
+    'empty-array': []
+    'empty-hash': {}
+
+    $ teepee -T '[% crumbr(); %]' <sample.yaml
+    empty-array []
+    empty-hash {}
+    null-value null
+    plain-value "ciao"
+
+You have probably noticed that this does not allow you to clearly
+distinguish between hash/object keys and array indexes. Hopefully this
+does not concern you because you have a sane input data structure, but
+in case you want to remove any space for misunderstanding, you can use
+`exact_crumbr` instead:
+
+    $ teepee -T '[% exact_crumbr(); %]' -i data.yml
+    {"array"}[0]:"first"
+    {"array"}[1]:"second"
+    {"array"}[2]:"third"
+    {"array"}[3]{"k1"}:"v1"
+    {"array"}[3]{"k2"}:"v2"
+    {"hash"}{"complex key"}:"whatever"
+    {"hash"}{"five"}[0]:"a"
+    {"hash"}{"five"}[1]:"b"
+    {"hash"}{"five"}[2]:"see..."
+    {"hash"}{"one"}:"two"
+    {"hash"}{"three"}:"four"
+    {"key1"}:"value1"
+    {"key2"}:"value2"
+
+If you like, or need, to play with _JSON subsets_ instead, you might
+find `json_crumbr` interesting:
+
+    $ teepee -T '[% json_crumbr(); %]' -i data.yml
+    {"array":["first"]}
+    {"array":["second"]}
+    {"array":["third"]}
+    {"array":[{"k1":"v1"}]}
+    {"array":[{"k2":"v2"}]}
+    {"hash":{"complex key":"whatever"}}
+    {"hash":{"five":["a"]}}
+    {"hash":{"five":["b"]}}
+    {"hash":{"five":["see..."]}}
+    {"hash":{"one":"two"}}
+    {"hash":{"three":"four"}}
+    {"key1":"value1"}
+    {"key2":"value2"}
+
+In this case, each line is a valid JSON data structure with one single
+leaf value only.
 
 # OPTIONS
 
