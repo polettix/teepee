@@ -2,6 +2,8 @@
 ME=$(readlink -f "$0")
 MYDIR=$(dirname "$ME")
 
+[ -r "$MYDIR/update-local.sh" ] && source "$MYDIR/update-local.sh"
+
 mobundle -PB "$MYDIR/teepee"          \
    -o "$MYDIR/bundle/teepee"          \
    -m Template::Perlish               \
