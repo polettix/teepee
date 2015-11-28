@@ -12,6 +12,17 @@ use I18N::Langinfo qw(langinfo CODESET);
 use Template::Perlish qw< render >;
 use Data::Crumbr;
 
+my @YAML_MODULES = qw<
+      YAML::XS
+      YAML::Syck
+      YAML::Tiny
+>;
+my @JSON_MODULES = qw<
+   Cpanel::JSON::XS
+   JSON::XS
+   JSON::PP
+>;
+
 my %config = (
    binmode => ':encoding(UTF-8)',
    define => [],
@@ -152,53 +163,43 @@ sub slurp_octets {
    return <$fh>;
 } ## end sub slurp_octets
 
+sub load_any {
+   for my $candidate (@_) {
+      (my $path = "$candidate.pm") =~ s{(?: :: | ')}{/}gmxs;
+      eval { require $path; 1 } and return $candidate;
+   }
+   die "$EVAL_ERROR\n";
+}
+
 sub read_input_yaml {
-   # We'll try some modules in sequence
-   my $retval;
+   my $module = load_any(@YAML_MODULES);
 
-   # YAML::XS::Load wants octets, not characters
-   $retval = eval {
-      require YAML::XS;
-      return YAML::XS::Load($_[0]);
-   };
-   return $retval if defined $retval;
+   if ($module eq 'YAML::Tiny') {
 
-   # YAML::Syck::Load seems to cope with octets and characters
-   # we'll use octets here. Anyway, we want characters back.
-   $retval = eval {
-      require YAML::Syck;
+      # octets are needed here...
+      return YAML::Tiny::Load(octets_to_characters($_[0]));
+
+   }
+   elsif ($module eq 'YAML::Syck') {
+
+      # YAML::Syck::Load seems to cope with octets and characters
+      # we'll use octets here. Anyway, we want characters back.
       local $YAML::Syck::ImplicitUnicode;
       $YAML::Syck::ImplicitUnicode = 1;
       return YAML::Syck::Load($_[0]);
-   };
-   return $retval if defined $retval;
 
-   # falling back to YAML::Tiny eventually... We don't "eval"
-   # here, we don't have further options!
-   require YAML::Tiny;
-   return YAML::Tiny::Load(octets_to_characters($_[0]));
+   }
+   else {
+
+      # assuming we just needs calling Load() here
+      return $module->can('Load')->($_[0]);
+
+   }
 } ## end sub read_input_yaml
 
 sub read_input_json {
-   # We'll try some modules in sequence
-   my $retval;
-
-   # we'll follow the order from JSON::MaybeXS
-   $retval = eval {
-      require Cpanel::JSON::XS;
-      return Cpanel::JSON::XS::decode_json($_[0]);
-   };
-   return $retval if defined $retval;
-
-   $retval = eval {
-      require JSON::XS;
-      return JSON::XS::decode_json($_[0]);
-   };
-   return $retval if defined $retval;
-
-   # JSON::PP is embedded, failure to use it is fatal
-   require JSON::PP;
-   return JSON::PP::decode_json($_[0]);
+   my $module = load_any(@JSON_MODULES);
+   return $module->can('decode_json')->($_[0]);
 } ## end sub read_input_json
 
 sub detect_format {
