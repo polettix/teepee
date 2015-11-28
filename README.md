@@ -65,9 +65,10 @@ file name, then the contents. Suggestion is to specify it if you happen
 to know, expecially for programmatic usage.
 
 The template to be expanded can be provided either from a file (via
-option ["--template"](#template)) or from the command-line directly (via
-option ["--text"](#text)). Templates can be written according to what
-[Template::Perlish](https://metacpan.org/pod/Template::Perlish) provides.
+option ["--template"](#template)) or from the command-line directly (via option
+["--text"](#text)). Templates can be written according to what
+[Template::Perlish](https://metacpan.org/pod/Template::Perlish) provides. As quick, specialized alternatives to
+["--text"](#text), you can also use ["--function"](#function) and ["--variable"](#variable).
 
 All files are supposed to be UTF-8 encoded. When the template is
 provided from the command line, module [I18N::Langinfo](https://metacpan.org/pod/I18N::Langinfo) is used to
