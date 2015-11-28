@@ -18,13 +18,15 @@ or just click here: [https://github.com/polettix/teepee/raw/master/bundle/teepee
 
     teepee [--usage] [--help] [--man] [--version]
 
-    teepee [-d|--define key=value]
+    teepee [-b|--binmode setting]
+           [-d|--define key=value]
            [-f|--format input-format]
            [-i|--input filename]
            [-n|--newline|--no-newline]
            [-o|--output filename]
            [-t|--template filename]
            [-T|--text string]
+           [-v|--variable string]
 
 # EXAMPLES
 
@@ -345,6 +347,16 @@ leaf value only.
 
 # OPTIONS
 
+- -b
+- --binmode
+
+        -b setting
+        --binmode setting
+
+    set the output encoding using the same rules as Perl's `binmode`
+    function. Defaults to `:encoding(UTF-8)`. When left empty, it is
+    considered equivalent to `:raw`.
+
 - -d
 - --define
 
@@ -444,6 +456,18 @@ leaf value only.
 - --usage
 
     print a concise usage line and exit.
+
+- -v string
+- --variable string
+
+        -v some.data.inside
+        --variable some.data.inside
+
+    expand a variable directly. This is equivalent to specifying:
+
+        -T '[% some.data.inside %]'
+
+    but more concise.
 
 - --version
 
