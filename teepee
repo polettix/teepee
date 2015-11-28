@@ -749,9 +749,15 @@ alias to C<uri_crumbr>
 
 =item - C<uri_crumbr>
 
+use crumbr with the C<URI> alternative
+
 =item - C<exact_crumbr>
 
+use crumbr with the I<exact> C<Default> alternative
+
 =item - C<json_crumbr>
+
+use crumbr with the C<JSON> alternative
 
 =item - C<JSON>
 

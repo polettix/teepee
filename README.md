@@ -414,8 +414,17 @@ leaf value only.
         alias to `uri_crumbr`
 
     - - `uri_crumbr`
+
+        use crumbr with the `URI` alternative
+
     - - `exact_crumbr`
+
+        use crumbr with the _exact_ `Default` alternative
+
     - - `json_crumbr`
+
+        use crumbr with the `JSON` alternative
+
     - - `JSON`
 
         dumps the input as pretty-printed JSON (so this is more readable)
