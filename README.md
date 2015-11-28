@@ -21,6 +21,7 @@ or just click here: [https://github.com/polettix/teepee/raw/master/bundle/teepee
     teepee [-b|--binmode setting]
            [-d|--define key=value]
            [-f|--format input-format]
+           [-F|--function spec]
            [-i|--input filename]
            [-n|--newline|--no-newline]
            [-o|--output filename]
@@ -387,6 +388,40 @@ leaf value only.
 
     set the format for input data files. It can be one of `yml`, `yaml`,
     `json` or `jsn` in whatever case.
+
+- -F
+- --function
+
+        -F spec
+        --function spec
+
+    set template to a function. This is equivalent to specifying:
+
+        -T '[%= spec %]'
+
+    except that it is more concise. You can of course put whatever in
+    `spec`, so you are not constrained on using a single function.
+
+    Currently available functions are:
+
+    - - `crumbr_as(type)`
+
+        where `type` can be `URI`, `Default` or `JSON`;
+
+    - - `crumbr`
+
+        alias to `uri_crumbr`
+
+    - - `uri_crumbr`
+    - - `exact_crumbr`
+    - - `json_crumbr`
+    - - `JSON`
+
+        dumps the input as pretty-printed JSON (so this is more readable)
+
+    - - `YAML`
+
+        dumps the input as YAML (so this is more readable)
 
 - --help
 
