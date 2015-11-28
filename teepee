@@ -243,13 +243,15 @@ or just click here: L<https://github.com/polettix/teepee/raw/master/bundle/teepe
 
    teepee [--usage] [--help] [--man] [--version]
 
-   teepee [-d|--define key=value]
+   teepee [-b|--binmode setting]
+          [-d|--define key=value]
           [-f|--format input-format]
           [-i|--input filename]
           [-n|--newline|--no-newline]
           [-o|--output filename]
           [-t|--template filename]
           [-T|--text string]
+          [-v|--variable string]
 
 =head1 EXAMPLES
 
@@ -577,6 +579,17 @@ leaf value only.
 
 =over
 
+=item -b
+
+=item --binmode
+
+   -b setting
+   --binmode setting
+
+set the output encoding using the same rules as Perl's C<binmode>
+function. Defaults to C<:encoding(UTF-8)>. When left empty, it is
+considered equivalent to C<:raw>.
+
 =item -d
 
 =item --define
@@ -702,6 +715,19 @@ set the template to expand directly on the command line.
 =item --usage
 
 print a concise usage line and exit.
+
+=item -v string
+
+=item --variable string
+
+   -v some.data.inside
+   --variable some.data.inside
+
+expand a variable directly. This is equivalent to specifying:
+
+   -T '[% some.data.inside %]'
+
+but more concise.
 
 =item --version
 
