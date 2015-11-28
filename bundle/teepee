@@ -6273,7 +6273,17 @@ sub YAML {
    require Storable;
    my $ref = cleanup(Storable::dclone(shift));
    my $module = load_any(@YAML_MODULES);
-   return $module->can('Dump')->($ref);
+   if ($module eq 'YAML::Tiny') {
+      return YAML::Tiny::Dump($ref);
+   }
+   elsif ($module eq 'YAML::Syck') {
+      local $YAML::Syck::ImplicitUnicode;
+      $YAML::Syck::ImplicitUnicode = 1;
+      return YAML::Syck::Dump($ref);
+   }
+   else {
+      return octets_to_characters($module->can('Dump')->($ref));
+   }
 }
 
 sub isa_any {
