@@ -225,6 +225,28 @@ This takes the element at path `array` from `%variables`, expands it
 as an array and... well, what you do with it is completely up to you, of
 course.
 
+## Pretty Printing
+
+Sometimes, especially in an interactive session, you might just want to
+take a look at the data structure you have to traverse; this is where
+_pretty-printing_ comes handy.
+
+YAML is already quite readable by its own, so chances are that you might
+want to have some pretty-printing when your data is represented in
+campact JSON format.
+
+There are two functions for pretty-printing: ["YAML"](#yaml) and ["JSON"](#json). As
+you might have guessed, they print out the input data structure
+respectively as YAML and JSON (so they can also be used to transform one
+into the other, of course). It suffices to use the `/-F` option to get
+their services:
+
+    # pretty-print JSON as JSON
+    $ teepee -FJSON <input.json
+
+    # just dump as YAML
+    $ teepee -FYAML <input.whatever
+
 ## Feeling Better With `grep`?
 
 If you're not very comfortable with Perl... you should. There are a lot
