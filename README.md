@@ -264,7 +264,7 @@ see what this does when applied to the example data structure described
 in ["Writing Templates"](#writing-templates). The template is quite straightforward in this
 case:
 
-    $ teepee -T '[% crumbr(); %]' -i data.yml
+    $ teepee -T '[%= crumbr(); %]' -i data.yml
 
 and the output is the following:
 
@@ -290,7 +290,7 @@ sorted numerically.
 So, are we still looking at the values pointed by key `k1` inside any
 hash under the top-level array? This is how you do it:
 
-    $ teepee -T '[% crumbr(); %]' -i data.yml \
+    $ teepee -T '[%= crumbr(); %]' -i data.yml \
       | grep '^array/[0-9][0-9]*/k1 '
 
 You get the idea.
@@ -321,7 +321,7 @@ Example:
     'empty-array': []
     'empty-hash': {}
 
-    $ teepee -T '[% crumbr(); %]' <sample.yaml
+    $ teepee -T '[%= crumbr(); %]' <sample.yaml
     empty-array []
     empty-hash {}
     null-value null
@@ -333,7 +333,7 @@ does not concern you because you have a sane input data structure, but
 in case you want to remove any space for misunderstanding, you can use
 `exact_crumbr` instead:
 
-    $ teepee -T '[% exact_crumbr(); %]' -i data.yml
+    $ teepee -T '[%= exact_crumbr(); %]' -i data.yml
     {"array"}[0]:"first"
     {"array"}[1]:"second"
     {"array"}[2]:"third"
@@ -351,7 +351,7 @@ in case you want to remove any space for misunderstanding, you can use
 If you like, or need, to play with _JSON subsets_ instead, you might
 find `json_crumbr` interesting:
 
-    $ teepee -T '[% json_crumbr(); %]' -i data.yml
+    $ teepee -T '[%= json_crumbr(); %]' -i data.yml
     {"array":["first"]}
     {"array":["second"]}
     {"array":["third"]}
@@ -587,11 +587,62 @@ The following environment variables are supported:
 
 # DEPENDENCIES
 
-- [JSON::PP](https://metacpan.org/pod/JSON::PP)
+- [Data::Crumbr](https://metacpan.org/pod/Data::Crumbr) (and sons)
+- [JSON::PP](https://metacpan.org/pod/JSON::PP) (with [JSON::PP::Boolean](https://metacpan.org/pod/JSON::PP::Boolean))
+- [Mo](https://metacpan.org/pod/Mo) (with [Mo::default](https://metacpan.org/pod/Mo::default) and [Mo::coerce](https://metacpan.org/pod/Mo::coerce))
 - [Template::Perlish](https://metacpan.org/pod/Template::Perlish)
 - [YAML::Tiny](https://metacpan.org/pod/YAML::Tiny)
 
-The bundled version contains all the needed modules.
+The bundled version contains all the needed modules, without
+documentation. The following licensing terms apply to the included
+version:
+
+- [Data::Crumbr](https://metacpan.org/pod/Data::Crumbr)
+
+    Copyright (C) 2015 by Flavio Poletti <polettix@cpan.org>
+
+    This module is free software. You can redistribute it and/or modify it
+    under the terms of the Artistic License 2.0.
+
+    This program is distributed in the hope that it will be useful, but
+    without any warranty; without even the implied warranty of
+    merchantability or fitness for a particular purpose.
+
+- [JSON::PP](https://metacpan.org/pod/JSON::PP)
+
+    Copyright 2007-2014 by Makamaka Hannyaharamitu
+
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
+- [Mo](https://metacpan.org/pod/Mo)
+
+    Copyright (c) 2011-2013. Ingy döt Net.
+
+    This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+
+    See http://www.perl.com/perl/misc/Artistic.html
+
+- [Template::Perlish](https://metacpan.org/pod/Template::Perlish)
+
+    Copyright (c) 2008-2015 by Flavio Poletti polettix@cpan.org.
+
+    This module is free software. You can redistribute it and/or modify it
+    under the terms of the Artistic License 2.0.
+
+    This program is distributed in the hope that it will be useful, but
+    without any warranty; without even the implied warranty of
+    merchantability or fitness for a particular purpose.
+
+- [YAML::Tiny](https://metacpan.org/pod/YAML::Tiny)
+
+    Copyright 2006 - 2013 Adam Kennedy.
+
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+
+    The full text of the license can be found in the LICENSE file available
+    at https://metacpan.org/source/ETHER/YAML-Tiny-1.69/LICENSE.
 
 # BUGS AND LIMITATIONS
 
@@ -615,3 +666,11 @@ modify it under the terms of the Artistic License 2.0.
 This program is distributed in the hope that it will be useful,
 but without any warranty; without even the implied warranty of
 merchantability or fitness for a particular purpose.
+
+# POD ERRORS
+
+Hey! **The above document had some coding errors, which are explained below:**
+
+- Around line 995:
+
+    Non-ASCII character seen before =encoding in 'döt'. Assuming UTF-8

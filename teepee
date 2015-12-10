@@ -568,7 +568,7 @@ see what this does when applied to the example data structure described
 in L</Writing Templates>. The template is quite straightforward in this
 case:
 
-   $ teepee -T '[% crumbr(); %]' -i data.yml
+   $ teepee -T '[%= crumbr(); %]' -i data.yml
 
 and the output is the following:
 
@@ -594,7 +594,7 @@ sorted numerically.
 So, are we still looking at the values pointed by key C<k1> inside any
 hash under the top-level array? This is how you do it:
 
-   $ teepee -T '[% crumbr(); %]' -i data.yml \
+   $ teepee -T '[%= crumbr(); %]' -i data.yml \
      | grep '^array/[0-9][0-9]*/k1 '
 
 You get the idea.
@@ -629,7 +629,7 @@ Example:
    'empty-array': []
    'empty-hash': {}
 
-   $ teepee -T '[% crumbr(); %]' <sample.yaml
+   $ teepee -T '[%= crumbr(); %]' <sample.yaml
    empty-array []
    empty-hash {}
    null-value null
@@ -641,7 +641,7 @@ does not concern you because you have a sane input data structure, but
 in case you want to remove any space for misunderstanding, you can use
 C<exact_crumbr> instead:
 
-   $ teepee -T '[% exact_crumbr(); %]' -i data.yml
+   $ teepee -T '[%= exact_crumbr(); %]' -i data.yml
    {"array"}[0]:"first"
    {"array"}[1]:"second"
    {"array"}[2]:"third"
@@ -659,7 +659,7 @@ C<exact_crumbr> instead:
 If you like, or need, to play with I<JSON subsets> instead, you might
 find C<json_crumbr> interesting:
 
-   $ teepee -T '[% json_crumbr(); %]' -i data.yml
+   $ teepee -T '[%= json_crumbr(); %]' -i data.yml
    {"array":["first"]}
    {"array":["second"]}
    {"array":["third"]}
@@ -946,7 +946,15 @@ be disabled anyway.
 
 =item *
 
-L<JSON::PP>
+L<Data::Crumbr> (and sons)
+
+=item *
+
+L<JSON::PP> (with L<JSON::PP::Boolean>)
+
+=item *
+
+L<Mo> (with L<Mo::default> and L<Mo::coerce>)
 
 =item *
 
@@ -958,7 +966,64 @@ L<YAML::Tiny>
 
 =back
 
-The bundled version contains all the needed modules.
+The bundled version contains all the needed modules, without
+documentation. The following licensing terms apply to the included
+modules:
+
+=over
+
+=item L<Data::Crumbr>
+
+Copyright (C) 2015 by Flavio Poletti <polettix@cpan.org>
+
+This module is free software. You can redistribute it and/or modify it
+under the terms of the Artistic License 2.0.
+
+This program is distributed in the hope that it will be useful, but
+without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
+=item L<JSON::PP>
+
+Copyright 2007-2014 by Makamaka Hannyaharamitu
+
+This library is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
+=item L<Mo>
+
+Copyright (c) 2011-2013. Ingy döt Net.
+
+This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+
+See http://www.perl.com/perl/misc/Artistic.html
+
+=item L<Template::Perlish>
+
+Copyright (c) 2008-2015 by Flavio Poletti polettix@cpan.org.
+
+This module is free software. You can redistribute it and/or modify it
+under the terms of the Artistic License 2.0.
+
+This program is distributed in the hope that it will be useful, but
+without any warranty; without even the implied warranty of
+merchantability or fitness for a particular purpose.
+
+=item L<YAML::Tiny>
+
+Copyright 2006 - 2013 Adam Kennedy.
+
+This program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
+The full text of the license can be found in the LICENSE file available
+at https://metacpan.org/source/ETHER/YAML-Tiny-1.69/LICENSE.
+
+
+=back
+
+
+
 
 =head1 BUGS AND LIMITATIONS
 
