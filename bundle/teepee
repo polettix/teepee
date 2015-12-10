@@ -20,13 +20,12 @@ BEGIN {
 
       'Data/Crumbr.pm' => <<'END_OF_FILE',
  package Data::Crumbr;
- $Data::Crumbr::VERSION = '0.1.0';
+ $Data::Crumbr::VERSION = '0.1.1';
  # ABSTRACT: Render data structures for easy searching and parsing
  
  # Inlined Mo
  use Mo qw< default coerce >;
  
- use 5.018;
  use strict;
  use warnings;
  use Carp;
@@ -159,7 +158,7 @@ BEGIN {
  
  =head1 VERSION
  
- version 0.1.0
+ version 0.1.1
  
  =head1 SYNOPSIS
  
@@ -655,12 +654,11 @@ END_OF_FILE
 
       'Data/Crumbr/Default.pm' => <<'END_OF_FILE',
  package Data::Crumbr::Default;
- $Data::Crumbr::Default::VERSION = '0.1.0';
+ $Data::Crumbr::Default::VERSION = '0.1.1';
  # ABSTRACT: Default renderer for Data::Crumbr
  
  use Mo qw< default coerce >;
  
- use 5.018;
  use strict;
  use warnings;
  use Carp;
@@ -822,7 +820,7 @@ END_OF_FILE
  
  =head1 VERSION
  
- version 0.1.0
+ version 0.1.1
  
  =head1 DESCRIPTION
  
@@ -906,7 +904,7 @@ END_OF_FILE
 
       'Data/Crumbr/Default/Default.pm' => <<'END_OF_FILE',
  package Data::Crumbr::Default::Default;
- $Data::Crumbr::Default::Default::VERSION = '0.1.0';
+ $Data::Crumbr::Default::Default::VERSION = '0.1.1';
  # ABSTRACT: "Default" profile for Data::Crumbr::Default
  
  # Default is default... nothing is set here!
@@ -926,7 +924,7 @@ END_OF_FILE
  
  =head1 VERSION
  
- version 0.1.0
+ version 0.1.1
  
  =head1 DESCRIPTION
  
@@ -970,7 +968,7 @@ END_OF_FILE
 
       'Data/Crumbr/Default/JSON.pm' => <<'END_OF_FILE',
  package Data::Crumbr::Default::JSON;
- $Data::Crumbr::Default::JSON::VERSION = '0.1.0';
+ $Data::Crumbr::Default::JSON::VERSION = '0.1.1';
  # ABSTRACT: "JSON" profile for Data::Crumbr::Default
  use Data::Crumbr::Util;
  
@@ -1009,7 +1007,7 @@ END_OF_FILE
  
  =head1 VERSION
  
- version 0.1.0
+ version 0.1.1
  
  =head1 DESCRIPTION
  
@@ -1053,7 +1051,7 @@ END_OF_FILE
 
       'Data/Crumbr/Default/URI.pm' => <<'END_OF_FILE',
  package Data::Crumbr::Default::URI;
- $Data::Crumbr::Default::URI::VERSION = '0.1.0';
+ $Data::Crumbr::Default::URI::VERSION = '0.1.1';
  # ABSTRACT: "JSON" profile for Data::Crumbr::Default
  use Data::Crumbr::Util;
  
@@ -1061,18 +1059,18 @@ END_OF_FILE
     my $json_encoder = Data::Crumbr::Util::json_leaf_encoder();
     my $uri_encoder  = Data::Crumbr::Util::uri_encoder();
     return {
-       array_open        => '',
-       array_close       => '',
-       array_key_prefix  => '',
-       array_key_suffix  => '',
+       array_open       => '',
+       array_close      => '',
+       array_key_prefix => '',
+       array_key_suffix => '',
  
-       hash_open         => '',
-       hash_close        => '',
-       hash_key_prefix   => '',
-       hash_key_suffix   => '',
+       hash_open       => '',
+       hash_close      => '',
+       hash_key_prefix => '',
+       hash_key_suffix => '',
  
-       keys_separator    => '/',
-       value_separator   => ' ',
+       keys_separator  => '/',
+       value_separator => ' ',
  
        array_key_encoder => $uri_encoder,
        hash_key_encoder  => $uri_encoder,
@@ -1094,7 +1092,7 @@ END_OF_FILE
  
  =head1 VERSION
  
- version 0.1.0
+ version 0.1.1
  
  =head1 DESCRIPTION
  
@@ -1138,9 +1136,8 @@ END_OF_FILE
 
       'Data/Crumbr/Util.pm' => <<'END_OF_FILE',
  package Data::Crumbr::Util;
- $Data::Crumbr::Util::VERSION = '0.1.0';
+ $Data::Crumbr::Util::VERSION = '0.1.1';
  # ABSTRACT: utility functions for Data::Crumbr
- use 5.018;
  use strict;
  use Carp;
  use Scalar::Util qw< reftype blessed >;
@@ -1150,73 +1147,87 @@ END_OF_FILE
     return \&_json_leaf_encode;
  }
  
- sub _json_leaf_encode {
-    return 'null' unless defined $_[0];
+ {
+    my $slash_escaped;
  
-    my $reftype = ref($_[0]);
-    return '[]' if $reftype eq 'ARRAY';
-    return '{}' if $reftype eq 'HASH';
-    return (${$_[0]} ? 'true' : 'false')
-      if $reftype eq 'SCALAR';
+    BEGIN {
+       $slash_escaped = {
+          0x22 => '"',
+          0x5C => "\\",
+          0x2F => '/',
+          0x08 => 'b',
+          0x0C => 'f',
+          0x0A => 'n',
+          0x0D => 'r',
+          0x09 => 't',
+       };
+    } ## end BEGIN
  
-    if (my $package = blessed($_[0])) {
-       my $reftype = reftype($_[0]);
+    sub _json_leaf_encode {
+       return 'null' unless defined $_[0];
+ 
+       my $reftype = ref($_[0]);
+       return '[]' if $reftype eq 'ARRAY';
+       return '{}' if $reftype eq 'HASH';
        return (${$_[0]} ? 'true' : 'false')
-         if ($reftype eq 'SCALAR') && ($package =~ /bool/mxsi);
-    }
+         if $reftype eq 'SCALAR';
  
-    croak "unsupported ref type $reftype" if $reftype;
+       if (my $package = blessed($_[0])) {
+          my $reftype = reftype($_[0]);
+          return (${$_[0]} ? 'true' : 'false')
+            if ($reftype eq 'SCALAR') && ($package =~ /bool/mxsi);
+       }
  
-    my $number_flags = B::SVp_IOK() | B::SVp_NOK();
-    return $_[0]
-      if (B::svref_2object(\$_[0])->FLAGS() & $number_flags)
-      && 0 + $_[0] eq $_[0]
-      && $_[0] * 0 == 0;
+       croak "unsupported ref type $reftype" if $reftype;
  
-    state $slash_escaped = {
-       0x22 => '"',
-       0x5C => "\\",
-       0x2F => '/',
-       0x08 => 'b',
-       0x0C => 'f',
-       0x0A => 'n',
-       0x0D => 'r',
-       0x09 => 't',
-    };
-    my $string = join '', map {
-       my $cp = ord($_);
+       my $number_flags = B::SVp_IOK() | B::SVp_NOK();
+       return $_[0]
+         if (B::svref_2object(\$_[0])->FLAGS() & $number_flags)
+         && 0 + $_[0] eq $_[0]
+         && $_[0] * 0 == 0;
  
-       if (exists $slash_escaped->{$cp}) {
-          "\\$slash_escaped->{$cp}";
-       }
-       elsif ($cp >= 32 && $cp < 128) {    # ASCII
-          $_;
-       }
-       elsif ($cp < 0x10000) {             # controls & BML
-          sprintf "\\u%4.4X", $cp;
-       }
-       else {                              # beyond BML
-          my $hi = ($cp - 0x10000) / 0x400 + 0xD800;
-          my $lo = ($cp - 0x10000) % 0x400 + 0xDC00;
-          sprintf "\\u%4.4X\\u%4.4X", $hi, $lo;
-       }
-    } split //, $_[0];
-    return qq<"> . $string . qq<">;
- } ## end sub _json_leaf_encode
+       my $string = join '', map {
+          my $cp = ord($_);
+ 
+          if (exists $slash_escaped->{$cp}) {
+             "\\$slash_escaped->{$cp}";
+          }
+          elsif ($cp >= 32 && $cp < 128) {    # ASCII
+             $_;
+          }
+          elsif ($cp < 0x10000) {             # controls & BML
+             sprintf "\\u%4.4X", $cp;
+          }
+          else {                              # beyond BML
+             my $hi = ($cp - 0x10000) / 0x400 + 0xD800;
+             my $lo = ($cp - 0x10000) % 0x400 + 0xDC00;
+             sprintf "\\u%4.4X\\u%4.4X", $hi, $lo;
+          }
+       } split //, $_[0];
+       return qq<"> . $string . qq<">;
+    } ## end sub _json_leaf_encode
+ }
  
  sub uri_encoder {
     require Encode;
     return \&_uri_encoder;
  }
  
- sub _uri_encoder {
-    my $octets = Encode::encode('UTF-8', $_[0], Encode::FB_CROAK());
-    state $is_unreserved =
-      {map { $_ => 1 } ('a' .. 'z', 'A' .. 'Z', '0' .. '9', qw< - _ . ~ >)};
-    return join '',
-      map { $is_unreserved->{$_} ? $_ : sprintf('%%%2.2X', ord $_); }
-      split //, $octets;
- } ## end sub _uri_encoder
+ {
+    my %is_unreserved;
+ 
+    BEGIN {
+       my @u = ('a' .. 'z', 'A' .. 'Z', '0' .. '9', qw< - _ . ~ >);
+       %is_unreserved = map { $_ => 1 } @u;
+    }
+ 
+    sub _uri_encoder {
+       my $octets = Encode::encode('UTF-8', $_[0], Encode::FB_CROAK());
+       return join '',
+         map { $is_unreserved{$_} ? $_ : sprintf('%%%2.2X', ord $_); }
+         split //, $octets;
+    } ## end sub _uri_encoder
+ }
  
  sub id_encoder {
     return sub { $_[0] };
@@ -1236,7 +1247,7 @@ END_OF_FILE
  
  =head1 VERSION
  
- version 0.1.0
+ version 0.1.1
  
  =head1 DESCRIPTION
  
