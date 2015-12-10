@@ -18,7 +18,11 @@ or just click here: [https://github.com/polettix/teepee/raw/master/bundle/teepee
 
     teepee [--usage] [--help] [--man] [--version]
 
-    teepee [-b|--binmode setting]
+    teepee [-A|--auto-key]
+           [-P|--auto-key-prefix string]
+           [-S|--auto-key-suffix string]
+           [-b|--binmode setting]
+           [-K|--default-key string]
            [-d|--define key=value]
            [-f|--format input-format]
            [-F|--function spec]
@@ -78,6 +82,49 @@ doubt, just use a UTF-8 encoded file for your template.
 Output is sent to either standard output (by default or if you set the
 filename to `-`) or to the filename specified via option `/--output`.
 Output will be printed assuming that the receiving end is UTF-8 capable.
+
+## Reading Inputs
+
+It's worth noting that input data might come into three forms,
+independently of the input format: _hash_ (i.e. _object_ in JSON),
+_array_ or _scalar_. Whatever the input, a big _hash_/_object_ is
+built and eventually consumed by the templates; every time the top-level
+element in the input is not a _hash_, the following applies:
+applies:
+
+- a (hopefully) unique key is generated joining ["--auto-key-prefix"](#auto-key-prefix), an
+increasing integer number starting from `0`, and [--auto-key-suffix](https://metacpan.org/pod/--auto-key-suffix).
+The value is associated to this key in the top level hash.
+- the last value read in this way is always associated to key
+["--default-key"](#default-key).
+
+By default, the three options are set to the string `_` (one single
+underscore).
+
+For example, if you have two input files with two arrays inside:
+
+    # first input, JSON format
+    [ "one", "two", "three" ]
+
+    # second input, JSON format
+    [ 1, 2, 3 ]
+
+the resulting overall hash read will be the following when the two
+inputs are read in the order above:
+
+    {
+       _0_ => [ 'one', 'two', 'three' ],
+       _1_ => [ 1, 2, 3 ],
+       _   => [ 1, 2, 3 ],
+    }
+
+You can change the different options to be able to mix the input arrays
+with hashes and preserve key uniqueness.
+
+If you specify input option [--auto-key](https://metacpan.org/pod/--auto-key), the above algorithm will
+always be applied, also for hash inputs. This allows you get input from
+multiple sources without the risk of having keys trump on each other
+(which might be or not what you want).
 
 ## Writing Templates
 
@@ -293,7 +340,14 @@ hash under the top-level array? This is how you do it:
     $ teepee -T '[%= crumbr(); %]' -i data.yml \
       | grep '^array/[0-9][0-9]*/k1 '
 
-You get the idea.
+You get the idea. Typing (or even remembering) that template might be
+cumbersome, which is why there is a shorthand option ["-F"](#f) that lets
+you just write this instead:
+
+    $ teepee -Fcrumbr -i data.yml | grep '^array/[0-9][0-9]*/k1'
+
+See ["--function"](#function)/["-F"](#f) for the available functions in addition to
+`crumbr`. We will use this short form from now on.
 
 Why the JSON encoding in the output? Aren't those double quotes
 annoying? The answer is probably yes, but they are also needed. In fact,
@@ -321,7 +375,7 @@ Example:
     'empty-array': []
     'empty-hash': {}
 
-    $ teepee -T '[%= crumbr(); %]' <sample.yaml
+    $ teepee -Fcrumbr <sample.yaml
     empty-array []
     empty-hash {}
     null-value null
@@ -333,7 +387,7 @@ does not concern you because you have a sane input data structure, but
 in case you want to remove any space for misunderstanding, you can use
 `exact_crumbr` instead:
 
-    $ teepee -T '[%= exact_crumbr(); %]' -i data.yml
+    $ teepee -Fexact_crumbr -i data.yml
     {"array"}[0]:"first"
     {"array"}[1]:"second"
     {"array"}[2]:"third"
@@ -351,7 +405,7 @@ in case you want to remove any space for misunderstanding, you can use
 If you like, or need, to play with _JSON subsets_ instead, you might
 find `json_crumbr` interesting:
 
-    $ teepee -T '[%= json_crumbr(); %]' -i data.yml
+    $ teepee -Fjson_crumbr -i data.yml
     {"array":["first"]}
     {"array":["second"]}
     {"array":["third"]}
@@ -371,6 +425,49 @@ leaf value only.
 
 # OPTIONS
 
+- -A
+- --auto-key
+- --no-auto-key
+
+        -A
+        --auto-key
+        --no-auto-key
+
+    When set (first two options), every input is put into its own sub-value
+    inside the top-level hash. See ["--auto-key-prefix"](#auto-key-prefix),
+    [--auto-key-suffix](https://metacpan.org/pod/--auto-key-suffix) and ["default-key"](#default-key) for options related to
+    automatic keys generation.
+
+    Defaults to a false value, i.e. hashes will be merged together in the
+    top level hash, and only array/scalar values will get an automatically
+    generated key.
+
+- -P
+- --auto-key-prefix
+
+        -P ITEM-
+        --auto-key-prefix ITEM-
+
+    Prefix to be applied when auto-generating a key for inserting an input
+    into the top-level hash. This applies to input top-level arrays/scalars,
+    unless when `--auto-key` is set in which case it applies to all
+    top-level inputs.
+
+    Defaults to the single underscore character `_`.
+
+- -S
+- --auto-key-suffix
+
+        -S _mine
+        --auto-key-suffix _mine
+
+    Suffix to be applied when auto-generating a key for inserting an input
+    into the top-level hash. This applies to input top-level arrays/scalars,
+    unless when `--auto-key` is set in which case it applies to all
+    top-level inputs.
+
+    Defaults to the single underscore character `_`.
+
 - -b
 - --binmode
 
@@ -380,6 +477,17 @@ leaf value only.
     set the output encoding using the same rules as Perl's `binmode`
     function. Defaults to `:encoding(UTF-8)`. When left empty, it is
     considered equivalent to `:raw`.
+
+- -K
+- --default-key
+
+        -K mykey
+        --default-key mykey
+
+    Key associated to the last top-level input that needs key
+    auto-generation (depends on ["--auto-key"](#auto-key)).
+
+    Defaults to the single underscore character `_`.
 
 - -d
 - --define
@@ -671,6 +779,6 @@ merchantability or fitness for a particular purpose.
 
 Hey! **The above document had some coding errors, which are explained below:**
 
-- Around line 995:
+- Around line 1143:
 
     Non-ASCII character seen before =encoding in 'döt'. Assuming UTF-8
