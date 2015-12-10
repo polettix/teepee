@@ -595,7 +595,7 @@ The following environment variables are supported:
 
 The bundled version contains all the needed modules, without
 documentation. The following licensing terms apply to the included
-version:
+modules:
 
 - [Data::Crumbr](https://metacpan.org/pod/Data::Crumbr)
 

@@ -4376,7 +4376,7 @@ L<YAML::Tiny>
 
 The bundled version contains all the needed modules, without
 documentation. The following licensing terms apply to the included
-version:
+modules:
 
 =over
 
