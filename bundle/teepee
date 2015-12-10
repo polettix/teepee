@@ -3472,26 +3472,35 @@ $config{newline} = 1
   if $ENV{TEEPEE_NEWLINE} && !defined $config{newline};
 
 # Script implementation here
-my $vars     = read_inputs(\%config);
+my ($vars, $has_auto_keys) = read_inputs(\%config);
 my $template = read_template(\%config);
 {
    no warnings 'once';
    my $crumbr = sub {
-      my ($profile) = @_;
+      my ($profile, $variables) = @_;
       $profile ||= 'URI';
       my @output;
       Data::Crumbr::crumbr(
          profile => $profile,
          encoder => {output => \*STDOUT},
-      )->($vars);
+      )->($variables || $vars);
+   };
+   my $ic = sub {
+      return $_[0] if @_;
+      return $vars unless $has_auto_keys;
+
+      # shallow copy will suffice here
+      my %retval = %$vars;
+      delete $retval{$config{'default-key'}};
+      return \%retval;
    };
    *Template::Perlish::crumbr_as    = $crumbr;
-   *Template::Perlish::crumbr       = sub { $crumbr->('URI') };
-   *Template::Perlish::uri_crumbr   = sub { $crumbr->('URI') };
-   *Template::Perlish::exact_crumbr = sub { $crumbr->('Default') };
-   *Template::Perlish::json_crumbr  = sub { $crumbr->('JSON') };
-   *Template::Perlish::JSON         = sub { JSON($vars) };
-   *Template::Perlish::YAML         = sub { YAML($vars) };
+   *Template::Perlish::crumbr       = sub { $crumbr->('URI', @_) };
+   *Template::Perlish::uri_crumbr   = sub { $crumbr->('URI', @_) };
+   *Template::Perlish::exact_crumbr = sub { $crumbr->('Default', @_) };
+   *Template::Perlish::json_crumbr  = sub { $crumbr->('JSON', @_) };
+   *Template::Perlish::JSON         = sub { JSON($ic->(@_)) };
+   *Template::Perlish::YAML         = sub { YAML($ic->(@_)) };
 }
 my $ofh = get_output_fh($config{output}, $config{binmode});
 my $output = render($template, $vars);
@@ -3557,7 +3566,7 @@ sub read_inputs {
       $$pointer = $value;
    }
 
-   return \%retval;
+   return (\%retval, $counter);
 } ## end sub read_inputs
 
 sub read_input {
@@ -3731,6 +3740,8 @@ sub traverse {
 } ## end sub traverse
 
 __END__
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -4040,6 +4051,27 @@ their services:
    # just dump as YAML
    $ teepee -FYAML <input.whatever
 
+Note that if your input is not an hash, or you are using L</--auto-key>,
+your data structure will contain multiple references to the same
+objects, which by default is considered a I<circular data reference>.
+C<teepee> solves this problem by eliminating the L</--default-key> from
+the input hash before doing the pretty-printing.
+
+This will anyway give you something that is different from the real
+input data, because of the embedding into the top-level hash.  If you
+just want the original data, you can do as follows (this will work only
+for the last read input data of course):
+
+   # pretty-print JSON as JSON
+   $ teepee -F'JSON(V("_"))' <input.json
+
+   # just dump as YAML
+   $ teepee -F'YAML(V("_"))' <input.whatever
+
+This isolates the last read input with an auto-generated key (with
+C<V("_")>) and pretty-prints that (passing to the relevant function,
+i.e. either C<JSON> or C<YAML>).
+
 =head2 Feeling Better With C<grep>?
 
 If you're not very comfortable with Perl... you should. There are a lot
@@ -4346,6 +4378,13 @@ dumps the input as pretty-printed JSON (so this is more readable)
 dumps the input as YAML (so this is more readable)
 
 =back
+
+The functions above work, by default, on the overall input data. You can
+pass an optional (additional) parameter with the data structure you want
+it to work upon, e.g. if you just want to pretty-print an item you can
+do this:
+
+   $ teepee -i input.json -F'YAML(V("some.inner.hash"))'
 
 =item --help
 

@@ -294,6 +294,27 @@ their services:
     # just dump as YAML
     $ teepee -FYAML <input.whatever
 
+Note that if your input is not an hash, or you are using ["--auto-key"](#auto-key),
+your data structure will contain multiple references to the same
+objects, which by default is considered a _circular data reference_.
+`teepee` solves this problem by eliminating the ["--default-key"](#default-key) from
+the input hash before doing the pretty-printing.
+
+This will anyway give you something that is different from the real
+input data, because of the embedding into the top-level hash.  If you
+just want the original data, you can do as follows (this will work only
+for the last read input data of course):
+
+    # pretty-print JSON as JSON
+    $ teepee -F'JSON(V("_"))' <input.json
+
+    # just dump as YAML
+    $ teepee -F'YAML(V("_"))' <input.whatever
+
+This isolates the last read input with an auto-generated key (with
+`V("_")`) and pretty-prints that (passing to the relevant function,
+i.e. either `JSON` or `YAML`).
+
 ## Feeling Better With `grep`?
 
 If you're not very comfortable with Perl... you should. There are a lot
@@ -563,6 +584,13 @@ leaf value only.
 
         dumps the input as YAML (so this is more readable)
 
+    The functions above work, by default, on the overall input data. You can
+    pass an optional (additional) parameter with the data structure you want
+    it to work upon, e.g. if you just want to pretty-print an item you can
+    do this:
+
+        $ teepee -i input.json -F'YAML(V("some.inner.hash"))'
+
 - --help
 
     print a somewhat more verbose help, showing usage, this description of
@@ -774,11 +802,3 @@ modify it under the terms of the Artistic License 2.0.
 This program is distributed in the hope that it will be useful,
 but without any warranty; without even the implied warranty of
 merchantability or fitness for a particular purpose.
-
-# POD ERRORS
-
-Hey! **The above document had some coding errors, which are explained below:**
-
-- Around line 1143:
-
-    Non-ASCII character seen before =encoding in 'döt'. Assuming UTF-8
