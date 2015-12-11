@@ -755,7 +755,8 @@ modules:
 
     Copyright (c) 2011-2013. Ingy döt Net.
 
-    This program is free software; you can redistribute it and/or modify it under the same terms as Perl itself.
+    This program is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
 
     See http://www.perl.com/perl/misc/Artistic.html
 
