@@ -26,12 +26,15 @@ or just click here: [https://github.com/polettix/teepee/raw/master/bundle/teepee
            [-d|--define key=value]
            [-f|--format input-format]
            [-F|--function spec]
+           [-I|--immediate]
            [-i|--input filename]
+           [-j|--jsn|--json filename]
            [-n|--newline|--no-newline]
            [-o|--output filename]
            [-t|--template filename]
            [-T|--text string]
            [-v|--variable string]
+           [-y|--yml|--yaml filename]
 
 # EXAMPLES
 
@@ -538,8 +541,9 @@ leaf value only.
         -f <yaml|yml|json|jsn>
         --format <yaml|yml|json|jsn>
 
-    set the format for input data files. It can be one of `yml`, `yaml`,
-    `json` or `jsn` in whatever case.
+    set the (default) format for input data files. It can be one of `yml`,
+    `yaml`, `json` or `jsn` in whatever case. You can also set the format
+    in a fine-grained way using either ["--json"](#json) or ["--yaml"](#yaml) options.
 
 - -F
 - --function
@@ -596,6 +600,19 @@ leaf value only.
     print a somewhat more verbose help, showing usage, this description of
     the options and some examples from the synopsis.
 
+- -I
+- --immediate
+
+        -I
+        --immediate
+
+    boolean option to signal that there is no input at all. This is handy if
+    you just want to expand a template based on a few variables set directly
+    on the command line, for example:
+
+        $ teepee -nI -d a=b -d c=d -T '[% a %] -> [% c %]'
+        b -> d
+
 - -i
 - --input
 
@@ -609,6 +626,16 @@ leaf value only.
     If set as `-`, standard input will be read.
 
     Note: only allowed data structures are hashes at the top level.
+
+- -j
+- --jsn
+- --json
+
+        -j input.json
+        --jsn some.json
+        --json other.json
+
+    add an input file indicating that its format is JSON.
 
 - --man
 
@@ -675,6 +702,16 @@ leaf value only.
 - --version
 
     print the version of the script.
+
+- -y
+- --yml
+- --yaml
+
+        -y input.yaml
+        --yml some.yaml
+        --yaml other.yaml
+
+    add an input file indicating that its format is YAML.
 
 # DIAGNOSTICS
 

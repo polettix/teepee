@@ -2176,52 +2176,53 @@ END_OF_FILE
       'Template/Perlish.pm' => <<'END_OF_FILE',
  package Template::Perlish;
  
- $VERSION = '1.40';
- 
  use 5.008_000;
  use warnings;
  use strict;
  use Carp;
  use English qw( -no_match_vars );
+ use constant ERROR_CONTEXT => 3;
+ { our $VERSION = '1.41_01'; }
  
  # Function-oriented interface
  sub import {
-    my $package = shift;
+    my ($package, @list) = @_;
  
-    for my $sub (@_) {
+    for my $sub (@list) {
        croak "subroutine '$sub' not exportable"
-          unless grep { $sub eq $_ } qw( render );
+         unless grep { $sub eq $_ } qw( render );
  
        my $caller = caller();
  
-       no strict 'refs';
+       no strict 'refs';    ## no critic (ProhibitNoStrict)
        local $SIG{__WARN__} = \&Carp::carp;
-       *{$caller . '::' . $sub} = \&{$package . '::' . $sub};
-    }
+       *{$caller . q<::> . $sub} = \&{$package . q<::> . $sub};
+    } ## end for my $sub (@list)
  
     return;
- }
+ } ## end sub import
  
  sub render {
-    my $template = shift;
-    my (%variables, %params);
-    if (@_) {
-       %variables = ref($_[0]) ? %{shift @_} : splice @_, 0;
-       %params = %{shift @_} if @_;
+    my ($template, @rest) = @_;
+    my ($variables, %params);
+    if (@rest) {
+       $variables = ref($rest[0]) ? shift(@rest) : { splice @rest, 0 };
+       %params = %{shift @rest} if @rest;
     }
-    return __PACKAGE__->new(%params)->process($template, \%variables);
- }
+    return __PACKAGE__->new(%params)->process($template, $variables);
+ } ## end sub render
  
  # Object-oriented interface
  sub new {
+    my ($package, @rest) = @_;
     my $self = bless {
        start     => '[%',
        stop      => '%]',
        utf8      => 1,
        variables => {},
       },
-      shift;
-    %$self = (%$self, @_ == 1 ? %{$_[0]} : @_);
+      $package;
+    %{$self} = (%{$self}, @rest == 1 ? %{$rest[0]} : @rest);
     return $self;
  } ## end sub new
  
@@ -2233,25 +2234,24 @@ END_OF_FILE
  sub evaluate {
     my ($self, $compiled, $vars) = @_;
     $self->_compile_sub($compiled)
-       unless exists $compiled->{sub};
+      unless exists $compiled->{sub};
     return $compiled->{sub}->($vars);
  } ## end sub evaluate
  
- sub compile {
+ sub compile {    ## no critic (RequireArgUnpacking)
     my ($self, undef, %args) = @_;
     my $outcome = $self->_compile_code_text($_[1]);
     return $outcome if $args{no_check};
     return $self->_compile_sub($outcome);
- }
+ } ## end sub compile
  
- sub compile_as_sub {
+ sub compile_as_sub {    ## no critic (RequireArgUnpacking)
     my $self = shift;
     return $self->compile($_[0])->{'sub'};
- } ## end sub compile_as_sub
+ }
  
  sub _compile_code_text {
-    my $self = shift;
-    my ($template) = @_;
+    my ($self, $template) = @_;
  
     my $starter = $self->{start};
     my $stopper = $self->{stop};
@@ -2259,8 +2259,8 @@ END_OF_FILE
     my $compiled = "# line 1 'input'\n";
     $compiled .= "use utf8;\n\n" if $self->{utf8};
     $compiled .= "print {*STDOUT} '';\n\n";
-    my $pos      = 0;
-    my $line_no  = 1;
+    my $pos     = 0;
+    my $line_no = 1;
     while ($pos < length $template) {
  
        # Find starter and emit all previous text as simple text
@@ -2278,9 +2278,9 @@ END_OF_FILE
  
        # Grab code
        my $stop = index $template, $stopper, $pos;
-       if ($stop < 0) { # no matching $stopper, bummer!
-          my $section = _extract_section({ template => $template }, $line_no);
-          die "unclosed starter '$starter' at line $line_no\n$section";
+       if ($stop < 0) {    # no matching $stopper, bummer!
+          my $section = _extract_section({template => $template}, $line_no);
+          croak "unclosed starter '$starter' at line $line_no\n$section";
        }
        my $code = substr $template, $pos, $stop - $pos;
  
@@ -2291,17 +2291,21 @@ END_OF_FILE
           if (my $path = _smart_split($code)) {
              $compiled .= _variable($path);
           }
-          elsif (my ($scalar) = $code =~ m{\A\s* (\$ [a-zA-Z_]\w*) \s*\z}mxs) {
-             $compiled .= "\nprint {*STDOUT} $scalar; ### straight scalar\n\n";
-          }
-          elsif (substr($code, 0, 1) eq '=') {
-             $compiled .= "\n# line $line_no 'template<3,$line_no>'\n" .
-                _expression(substr $code, 1);
+          elsif (my ($scalar) =
+             $code =~ m{\A\s* (\$ [[:alpha:]_]\w*) \s*\z}mxs)
+          {
+             $compiled .=
+               "\nprint {*STDOUT} $scalar; ### straight scalar\n\n";
+          } ## end elsif (my ($scalar) = $code...)
+          elsif (substr($code, 0, 1) eq q<=>) {
+             $compiled .= "\n# line $line_no 'template<3,$line_no>'\n"
+               . _expression(substr $code, 1);
           }
           else {
-             $compiled .= "\n# line $line_no 'template<0,$line_no>'\n" . $code;
+             $compiled .=
+               "\n# line $line_no 'template<0,$line_no>'\n" . $code;
           }
-       }
+       } ## end if (length $code)
  
        # Update scanning variables
        $pos = $stop + length $stopper;
@@ -2316,27 +2320,39 @@ END_OF_FILE
        template  => $template,
        code_text => $compiled,
     };
- }
+ } ## end sub _compile_code_text
  
- sub _V {
+ sub _V {    ## no critic (ProhibitUnusedPrivateSubroutines)
     my $value = shift;
-    for my $chunk (@_) {
+    return $value unless @_;
+ 
+    my $pathref = shift;
+    if (! ref $pathref) {
+       return $value if defined($pathref) && ! length($pathref);
+       $pathref = _smart_split($pathref);
+    }
+    return '' unless defined $pathref;
+ 
+    # go down the rabbit hole
+    for my $segment (@$pathref) {
        if (ref($value) eq 'HASH') {
-          $value = $value->{$chunk};
+          $value = $value->{$segment};
        }
        elsif (ref($value) eq 'ARRAY') {
-          $value = $value->[$chunk];
+          $value = $value->[$segment];
        }
-       else {
+       else { # nothing to go down further... simply not found
           return '';
        }
-    }
-    return defined($value) ? $value : '';
- }
+    } ## end for my $segment (@$pathref)
  
- sub V { return '' }
- sub A { return }
- sub H { return }
+    # normalize output, substitute undef with ''
+    return defined($value) ? $value : '';
+ } ## end sub _V
+ 
+ sub V  { return '' }
+ sub A  { return }
+ sub H  { return }
  sub HK { return }
  sub HV { return }
  
@@ -2347,93 +2363,93 @@ END_OF_FILE
     {
        my $utf8 = $self->{utf8} ? 1 : 0;
        local $SIG{__WARN__} = sub { push @warnings, @_ };
-       $outcome->{sub} = eval <<"END_OF_CODE";
+       my $code = <<"END_OF_CODE";
     sub {
-       my \%variables = (\%{\$self->{variables}}, \%{shift || {}});
+       my \%variables = \%{\$self->{variables}};
+       my \$V = \\\%variables; # generic kid, as before by default
+ 
+       {
+          my \$vars = shift || {};
+          if (ref(\$vars) eq 'HASH') { # old case
+             \%variables = (\%variables, \%\$vars);
+          }
+          else {
+             \$V = \$vars; # keep \%variables around anyway
+          }
+       }
  
        no warnings 'redefine';
-       local *V = sub {
-          my \$path = _smart_split(shift) or return '';
-          return _V(\\\%variables, \@\$path);
-       };
-       local *A = sub {
-          my \$v = V(shift) or return;
-          return \@\$v;
-       };
-       local *H = sub {
-          my \$v = V(shift) or return;
-          return \%\$v;
-       };
-       local *HK = sub {
-          my \$v = V(shift) or return;
-          return keys \%\$v;
-       };
-       local *HV = sub {
-          my \$v = V(shift) or return;
-          return values \%\$v;
-       };
+       local *V  = sub { return           _V(\$V, \@_)       ; };
+       local *A  = sub { return        \@{_V(\$V, \@_) || []}; };
+       local *H  = sub { return        \%{_V(\$V, \@_) || {}}; };
+       local *HK = sub { return keys   \%{_V(\$V, \@_) || {}}; };
+       local *HV = sub { return values \%{_V(\$V, \@_) || {}}; };
        use warnings 'redefine';
  
        local *STDOUT;
-       open STDOUT, '>', \\my \$___buffer or croak "open(): \$OS_ERROR";
+       open STDOUT, '>', \\my \$buffer or croak "open(): \$OS_ERROR";
        binmode STDOUT, ':encoding(utf8)' if $utf8;
-       my \$___previous_selection = select(STDOUT);
-       { # closure to free "my" variables
+       my \$previous_selection = select(STDOUT);
+       { # double closure to free "my" variables
+          my (\$buffer, \$previous_selection); # hide external ones
+          { # this enclusure allows using "my" again
  $outcome->{code_text}
+          }
        }
-       select(\$___previous_selection);
+       select(\$previous_selection);
        close STDOUT;
        if ($utf8) {
           require Encode;
-          \$___buffer = Encode::decode(utf8 => \$___buffer);
+          \$buffer = Encode::decode(utf8 => \$buffer);
        }
-       return \$___buffer;
+       return \$buffer;
     }
  END_OF_CODE
+       # print {*STDOUT} $code; exit 0;
+       $outcome->{sub} = eval $code;  ## no critic (ProhibitStringyEval)
        return $outcome if $outcome->{sub};
     }
  
     my $error = $EVAL_ERROR;
     my ($offset, $starter, $line_no) =
-       $error =~ m{at\ 'template<(\d+),(\d+)>'\ line\ (\d+)}mxs;
+      $error =~ m{at[ ]'template<(\d+),(\d+)>'[ ]line[ ](\d+)}mxs;
     $line_no -= $offset;
-    s{at\ 'template<\d+,\d+>'\ line\ (\d+)}{'at line ' . ($1 - $offset)}egmxs
-       for @warnings, $error;
+    s{at[ ]'template<\d+,\d+>'[ ]line[ ](\d+)}
+     {'at line ' . ($1 - $offset)}egmxs
+      for @warnings, $error;
     if ($line_no == $starter) {
-       s{,\ near\ "\#\ line.*?\n\s+}{, near "}gmxs
-          for @warnings, $error;
+       s{,[ ]near[ ]"[#][ ]line.*?\n\s+}{, near "}gmxs
+         for @warnings, $error;
     }
  
     my $section = _extract_section($outcome, $line_no);
     $error = join '', @warnings, $error, "\n", $section;
  
-    die $error;
- } ## end sub compile
+    croak $error;
+ } ## end sub _compile_sub
  
  sub _extract_section {
     my ($hash, $line_no) = @_;
-    $line_no--; # for proper comparison with 0-based array
-    my $start = $line_no - 3;
-    my $end = $line_no + 3;
+    $line_no--;    # for proper comparison with 0-based array
+    my $start = $line_no - ERROR_CONTEXT;
+    my $end   = $line_no + ERROR_CONTEXT;
  
-    my @lines = split /\n/, $hash->{template};
-    $start = 0 if $start < 0;
-    $end = $#lines if $end > $#lines;
+    my @lines = split /\n/mxs, $hash->{template};
+    $start = 0       if $start < 0;
+    $end   = $#lines if $end > $#lines;
     my $n_chars = length($end + 1);
     return join '', map {
        sprintf "%s%${n_chars}d| %s\n",
-          (($_ == $line_no) ? '>>' : '  '),
-          ($_ + 1),
-          $lines[$_];
+         (($_ == $line_no) ? '>>' : '  '), ($_ + 1), $lines[$_];
     } $start .. $end;
- }
+ } ## end sub _extract_section
  
  sub _simple_text {
     my $text = shift;
  
-    return "print {*STDOUT} '$text';\n\n" if $text !~ /[\n'\\]/;
+    return "print {*STDOUT} '$text';\n\n" if $text !~ /[\n'\\]/mxs;
  
-    $text =~ s/^/ /gms; # indent, trick taken from diff -u
+    $text =~ s/^/ /gmxs;    # indent, trick taken from diff -u
     return <<"END_OF_CHUNK";
  ### Verbatim text
  print {*STDOUT} do {
@@ -2450,19 +2466,23 @@ END_OF_FILE
  
  sub _smart_split {
     my ($input) = @_;
+    return unless defined $input;
+ 
     $input =~ s{\A\s+|\s+\z}{}gmxs;
  
-    my $sq = qr{(?mxs: ' [^']* ' )};
-    my $dq = qr{(?mxs: " (?:[^\\"] | \\.)* " )};
-    my $ud = qr{(?mxs: \w+ )};
-    my $chunk = qr{(?mxs: $sq | $dq | $ud)+};
+    my $sq    = qr{(?mxs: ' [^']* ' )}mxs;
+    my $dq    = qr{(?mxs: " (?:[^\\"] | \\.)* " )}mxs;
+    my $ud    = qr{(?mxs: \w+ )}mxs;
+    my $chunk = qr{(?mxs: $sq | $dq | $ud)+}mxs;
  
     # save and reset current pos() on $input
     my $prepos = pos($input);
     pos($input) = undef;
  
     my @path;
-    push @path, $1 while $input =~ m{\G \.? ($chunk) }cgmxs;
+    ## no critic (RegularExpressions::ProhibitCaptureWithoutTest)
+    push @path, $1 while $input =~ m{\G [.]? ($chunk) }cgmxs;
+    ## use critic
  
     # save and restore pos() on $input
     my $postpos = pos($input);
@@ -2486,23 +2506,23 @@ END_OF_FILE
           elsif ($part =~ m{\G ($ud) }cgmxs) {
              push @subparts, $1;
           }
-          else { # shouldn't happen ever
+          else {    # shouldn't happen ever
              return;
           }
-       }
+       } ## end while ((pos($part) || 0) ...)
        $part = join '', @subparts;
-    }
+    } ## end for my $part (@path)
     return \@path;
- }
+ } ## end sub _smart_split
  
  sub _variable {
     my $path = shift;
-    my $DQ = '"';
-    $path = join ', ', map { $DQ . quotemeta($_) . $DQ } @$path;
+    my $DQ   = q<">; # double quotes
+    $path = join ', ', map { $DQ . quotemeta($_) . $DQ } @{$path};
  
     return <<"END_OF_CHUNK";
- ### Variable from \%variables stash
- print {*STDOUT} _V(\\\%variables, $path);
+ ### Variable from the stash (\$V)
+ print {*STDOUT} V([$path]);
  
  END_OF_CHUNK
  } ## end sub _variable
@@ -2520,7 +2540,7 @@ END_OF_FILE
  
  END_OF_CHUNK
  
- }
+ } ## end sub _expression
  
  1;
 
@@ -3453,13 +3473,16 @@ GetOptions(
      define|d=s@
      format|f=s
      function|F=s
+     immediate|I!
      input|i=s@
      newline|n!
      output|o=s
      template|t=s
      text|T=s
      variable|v=s
-     >
+     >,
+     'json|jsn|j=s@' => sub { push @{$config{input}}, [json => $_[1]] },
+     'yaml|yml|y=s@' => sub { push @{$config{input}}, [yaml => $_[1]] },
 ) or pod2usage(-verbose => 99, -sections => 'USAGE');
 pod2usage(message => "$0 $VERSION", -verbose => 99, -sections => ' ')
   if $config{version};
@@ -3541,32 +3564,43 @@ sub read_template {
 
 sub read_inputs {
    my $cfg = shift;
-   my %retval;
+   my ($retval, $retvalref);
 
    my @inputs = @{$cfg->{input}};
-   @inputs = '-' unless @inputs;
+   @inputs = '-' if (! scalar(@inputs)) && (! $cfg->{immediate});
    my $counter = 0;
-   for my $filename (@inputs) {
-      my $data = read_input($filename, $cfg->{format});
-      if ((ref($data) eq 'HASH') && (!$cfg->{'auto-key'})) {
-         %retval = (%retval, %$data);
-      }
-      else {
+   for my $input (@inputs) {
+      my ($format, $filename) = ref($input) ? @$input : (undef, $input);
+      my $data = read_input($filename, $format || $cfg->{format});
+      if ($cfg->{'auto-key'}) {
          my $prefix = $cfg->{'auto-key-prefix'};
          my $suffix = $cfg->{'auto-key-suffix'};
-         $retval{"$prefix$counter$suffix"} = $data;
-         $retval{$cfg->{'default-key'}} = $data;
+         $retval->{"$prefix$counter$suffix"} = $data;
+         $retval->{$cfg->{'default-key'}} = $data;
          ++$counter;
+         $retvalref = 'HASH';
+      }
+      elsif (! defined $retval) {
+         $retval = $data;
+         $retvalref = ref $retval;
+      }
+      elsif ((ref($data) eq 'HASH') && ($retvalref eq 'HASH')){
+         %$retval = (%$retval, %$data);
+      }
+      else {
+         pod2usage(
+            message => 'only one single input with ARRAY, or use auto-key',
+            -verbose => 99, -sections => 'USAGE');
       } ## end else [ if ((ref($data) eq 'HASH'...))]
    } ## end for my $filename (@inputs)
 
    for my $item (@{$cfg->{define}}) {
       my ($key, $value) = split /=/, $item, 2;
-      my $pointer = pointer_to_element(\%retval, split /\./, $key);
+      my $pointer = pointer_to_element($retval, split /\./, $key);
       $$pointer = $value;
    }
 
-   return (\%retval, $counter);
+   return ($retval, $counter);
 } ## end sub read_inputs
 
 sub read_input {
@@ -3658,7 +3692,10 @@ sub detect_format {
 # Adapted from http://perlmonks.org/?node_id=443584
 sub pointer_to_element {
    return reduce {
-      ($b =~ m{\A(?: 0 | [1-9]\d* )\z}mxs) ? \($$a->[$b]) : \($$a->{$b});
+        ref($$a) eq 'ARRAY'                  ? \($$a->[$b])
+      : ref($$a) eq 'HASH'                   ? \($$a->{$b})
+      : ($b =~ m{\A(?: 0 | [1-9]\d* )\z}mxs) ? \($$a->[$b])
+      :                                        \($$a->{$b});
    } \shift, @_;
 }
 
@@ -3771,12 +3808,15 @@ or just click here: L<https://github.com/polettix/teepee/raw/master/bundle/teepe
           [-d|--define key=value]
           [-f|--format input-format]
           [-F|--function spec]
+          [-I|--immediate]
           [-i|--input filename]
+          [-j|--jsn|--json filename]
           [-n|--newline|--no-newline]
           [-o|--output filename]
           [-t|--template filename]
           [-T|--text string]
           [-v|--variable string]
+          [-y|--yml|--yaml filename]
 
 =head1 EXAMPLES
 
@@ -4328,8 +4368,9 @@ sub-key.
    -f <yaml|yml|json|jsn>
    --format <yaml|yml|json|jsn>
 
-set the format for input data files. It can be one of C<yml>, C<yaml>,
-C<json> or C<jsn> in whatever case.
+set the (default) format for input data files. It can be one of C<yml>,
+C<yaml>, C<json> or C<jsn> in whatever case. You can also set the format
+in a fine-grained way using either L</--json> or L</--yaml> options.
 
 =item -F
 
@@ -4391,6 +4432,20 @@ do this:
 print a somewhat more verbose help, showing usage, this description of
 the options and some examples from the synopsis.
 
+=item -I
+
+=item --immediate
+
+   -I
+   --immediate
+
+boolean option to signal that there is no input at all. This is handy if
+you just want to expand a template based on a few variables set directly
+on the command line, for example:
+
+   $ teepee -nI -d a=b -d c=d -T '[% a %] -> [% c %]'
+   b -> d
+
 =item -i
 
 =item --input
@@ -4405,6 +4460,18 @@ structures.
 If set as C<->, standard input will be read.
 
 Note: only allowed data structures are hashes at the top level.
+
+=item -j
+
+=item --jsn
+
+=item --json
+
+   -j input.json
+   --jsn some.json
+   --json other.json
+
+add an input file indicating that its format is JSON.
 
 =item --man
 
@@ -4477,6 +4544,18 @@ but more concise.
 =item --version
 
 print the version of the script.
+
+=item -y
+
+=item --yml
+
+=item --yaml
+
+   -y input.yaml
+   --yml some.yaml
+   --yaml other.yaml
+
+add an input file indicating that its format is YAML.
 
 =back
 

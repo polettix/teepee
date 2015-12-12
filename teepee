@@ -45,13 +45,16 @@ GetOptions(
      define|d=s@
      format|f=s
      function|F=s
+     immediate|I!
      input|i=s@
      newline|n!
      output|o=s
      template|t=s
      text|T=s
      variable|v=s
-     >
+     >,
+     'json|jsn|j=s@' => sub { push @{$config{input}}, [json => $_[1]] },
+     'yaml|yml|y=s@' => sub { push @{$config{input}}, [yaml => $_[1]] },
 ) or pod2usage(-verbose => 99, -sections => 'USAGE');
 pod2usage(message => "$0 $VERSION", -verbose => 99, -sections => ' ')
   if $config{version};
@@ -133,32 +136,43 @@ sub read_template {
 
 sub read_inputs {
    my $cfg = shift;
-   my %retval;
+   my ($retval, $retvalref);
 
    my @inputs = @{$cfg->{input}};
-   @inputs = '-' unless @inputs;
+   @inputs = '-' if (! scalar(@inputs)) && (! $cfg->{immediate});
    my $counter = 0;
-   for my $filename (@inputs) {
-      my $data = read_input($filename, $cfg->{format});
-      if ((ref($data) eq 'HASH') && (!$cfg->{'auto-key'})) {
-         %retval = (%retval, %$data);
-      }
-      else {
+   for my $input (@inputs) {
+      my ($format, $filename) = ref($input) ? @$input : (undef, $input);
+      my $data = read_input($filename, $format || $cfg->{format});
+      if ($cfg->{'auto-key'}) {
          my $prefix = $cfg->{'auto-key-prefix'};
          my $suffix = $cfg->{'auto-key-suffix'};
-         $retval{"$prefix$counter$suffix"} = $data;
-         $retval{$cfg->{'default-key'}} = $data;
+         $retval->{"$prefix$counter$suffix"} = $data;
+         $retval->{$cfg->{'default-key'}} = $data;
          ++$counter;
+         $retvalref = 'HASH';
+      }
+      elsif (! defined $retval) {
+         $retval = $data;
+         $retvalref = ref $retval;
+      }
+      elsif ((ref($data) eq 'HASH') && ($retvalref eq 'HASH')){
+         %$retval = (%$retval, %$data);
+      }
+      else {
+         pod2usage(
+            message => 'only one single input with ARRAY, or use auto-key',
+            -verbose => 99, -sections => 'USAGE');
       } ## end else [ if ((ref($data) eq 'HASH'...))]
    } ## end for my $filename (@inputs)
 
    for my $item (@{$cfg->{define}}) {
       my ($key, $value) = split /=/, $item, 2;
-      my $pointer = pointer_to_element(\%retval, split /\./, $key);
+      my $pointer = pointer_to_element($retval, split /\./, $key);
       $$pointer = $value;
    }
 
-   return (\%retval, $counter);
+   return ($retval, $counter);
 } ## end sub read_inputs
 
 sub read_input {
@@ -250,7 +264,10 @@ sub detect_format {
 # Adapted from http://perlmonks.org/?node_id=443584
 sub pointer_to_element {
    return reduce {
-      ($b =~ m{\A(?: 0 | [1-9]\d* )\z}mxs) ? \($$a->[$b]) : \($$a->{$b});
+        ref($$a) eq 'ARRAY'                  ? \($$a->[$b])
+      : ref($$a) eq 'HASH'                   ? \($$a->{$b})
+      : ($b =~ m{\A(?: 0 | [1-9]\d* )\z}mxs) ? \($$a->[$b])
+      :                                        \($$a->{$b});
    } \shift, @_;
 }
 
@@ -363,12 +380,15 @@ or just click here: L<https://github.com/polettix/teepee/raw/master/bundle/teepe
           [-d|--define key=value]
           [-f|--format input-format]
           [-F|--function spec]
+          [-I|--immediate]
           [-i|--input filename]
+          [-j|--jsn|--json filename]
           [-n|--newline|--no-newline]
           [-o|--output filename]
           [-t|--template filename]
           [-T|--text string]
           [-v|--variable string]
+          [-y|--yml|--yaml filename]
 
 =head1 EXAMPLES
 
@@ -920,8 +940,9 @@ sub-key.
    -f <yaml|yml|json|jsn>
    --format <yaml|yml|json|jsn>
 
-set the format for input data files. It can be one of C<yml>, C<yaml>,
-C<json> or C<jsn> in whatever case.
+set the (default) format for input data files. It can be one of C<yml>,
+C<yaml>, C<json> or C<jsn> in whatever case. You can also set the format
+in a fine-grained way using either L</--json> or L</--yaml> options.
 
 =item -F
 
@@ -983,6 +1004,20 @@ do this:
 print a somewhat more verbose help, showing usage, this description of
 the options and some examples from the synopsis.
 
+=item -I
+
+=item --immediate
+
+   -I
+   --immediate
+
+boolean option to signal that there is no input at all. This is handy if
+you just want to expand a template based on a few variables set directly
+on the command line, for example:
+
+   $ teepee -nI -d a=b -d c=d -T '[% a %] -> [% c %]'
+   b -> d
+
 =item -i
 
 =item --input
@@ -997,6 +1032,18 @@ structures.
 If set as C<->, standard input will be read.
 
 Note: only allowed data structures are hashes at the top level.
+
+=item -j
+
+=item --jsn
+
+=item --json
+
+   -j input.json
+   --jsn some.json
+   --json other.json
+
+add an input file indicating that its format is JSON.
 
 =item --man
 
@@ -1069,6 +1116,18 @@ but more concise.
 =item --version
 
 print the version of the script.
+
+=item -y
+
+=item --yml
+
+=item --yaml
+
+   -y input.yaml
+   --yml some.yaml
+   --yaml other.yaml
+
+add an input file indicating that its format is YAML.
 
 =back
 
