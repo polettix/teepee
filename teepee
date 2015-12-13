@@ -301,7 +301,7 @@ sub isa_any {
 
 sub cleanup {
    my $ref = shift;
-   traverse(
+   _traverse(
       $ref,
       {},
       sub {
@@ -326,25 +326,27 @@ sub cleanup {
    return $ref;
 } ## end sub cleanup
 
-sub traverse {
+sub _traverse {
    my ($ref, $track, $action) = @_;
    my $type = ref($ref) or return;
+   my $refaddr = refaddr($ref);
    die "circular structure not allowed\n"
-     if $track->{refaddr($ref)}++;
+     if $track->{$refaddr}++;
    if ($type eq 'HASH') {
       for my $v (values %$ref) {
          $action->($v);
-         traverse($v, $track, $action);
+         _traverse($v, $track, $action);
       }
    } ## end if ($type eq 'HASH')
    elsif ($type eq 'ARRAY') {
       for my $v (@$ref) {
          $action->($v);
-         traverse($v, $track, $action);
+         _traverse($v, $track, $action);
       }
    } ## end elsif ($type eq 'ARRAY')
+   $track->{$refaddr}--; # allow acyclic directed graphs
    return;
-} ## end sub traverse
+} ## end sub _traverse
 
 __END__
 
