@@ -10,7 +10,7 @@ use List::Util qw< reduce >;
 use I18N::Langinfo qw(langinfo CODESET);
 use Scalar::Util qw< refaddr blessed >;
 
-use Template::Perlish qw< render >;
+use Template::Perlish 1.41 qw< render >;
 use Data::Crumbr;
 
 my @YAML_MODULES = qw<
@@ -45,16 +45,19 @@ GetOptions(
      define|d=s@
      format|f=s
      function|F=s
-     immediate|I!
      input|i=s@
      newline|n!
+     no-input|N!
      output|o=s
      template|t=s
      text|T=s
      variable|v=s
      >,
-     'json|jsn|j=s@' => sub { push @{$config{input}}, [json => $_[1]] },
-     'yaml|yml|y=s@' => sub { push @{$config{input}}, [yaml => $_[1]] },
+     'immediate|I=s@' => sub { push @{$config{input}},          \$_[1]  },
+     'json|jsn|j=s@'  => sub { push @{$config{input}}, [json =>  $_[1]] },
+     'JSON|JSN|J=s@'  => sub { push @{$config{input}}, [json => \$_[1]] },
+     'yaml|yml|y=s@'  => sub { push @{$config{input}}, [yaml =>  $_[1]] },
+     'YAML|YML|Y=s@'  => sub { push @{$config{input}}, [yaml => \$_[1]] },
 ) or pod2usage(-verbose => 99, -sections => 'USAGE');
 pod2usage(message => "$0 $VERSION", -verbose => 99, -sections => ' ')
   if $config{version};
@@ -139,10 +142,11 @@ sub read_inputs {
    my ($retval, $retvalref);
 
    my @inputs = @{$cfg->{input}};
-   @inputs = '-' if (! scalar(@inputs)) && (! $cfg->{immediate});
+   @inputs = '-' if (! scalar(@inputs)) && (! $cfg->{'no-input'});
    my $counter = 0;
    for my $input (@inputs) {
-      my ($format, $filename) = ref($input) ? @$input : (undef, $input);
+      my ($format, $filename) = (ref($input) eq 'ARRAY')
+         ? @$input : (undef, $input);
       my $data = read_input($filename, $format || $cfg->{format});
       if ($cfg->{'auto-key'}) {
          my $prefix = $cfg->{'auto-key-prefix'};
@@ -380,15 +384,18 @@ or just click here: L<https://github.com/polettix/teepee/raw/master/bundle/teepe
           [-d|--define key=value]
           [-f|--format input-format]
           [-F|--function spec]
-          [-I|--immediate]
+          [-I|--immediate text]
           [-i|--input filename]
           [-j|--jsn|--json filename]
+          [-J|--JSN|--JSON text]
           [-n|--newline|--no-newline]
+          [-N|--no-input]
           [-o|--output filename]
           [-t|--template filename]
           [-T|--text string]
           [-v|--variable string]
           [-y|--yml|--yaml filename]
+          [-Y|--YML|--YAML text]
 
 =head1 EXAMPLES
 
@@ -1008,15 +1015,12 @@ the options and some examples from the synopsis.
 
 =item --immediate
 
-   -I
-   --immediate
+   -I '{"ciao":"a tutti"}'
+   --immediate '{"hey":"joe"}'
 
-boolean option to signal that there is no input at all. This is handy if
-you just want to expand a template based on a few variables set directly
-on the command line, for example:
-
-   $ teepee -nI -d a=b -d c=d -T '[% a %] -> [% c %]'
-   b -> d
+immediate input, whose content is directly in the command line
+parameter. Does auto-detection and complies with L</--format> as
+L</--input>.
 
 =item -i
 
@@ -1045,6 +1049,25 @@ Note: only allowed data structures are hashes at the top level.
 
 add an input file indicating that its format is JSON.
 
+=item -J
+
+=item --JSN
+
+=item --JSON
+
+   -J '{"ciao":"a tutti"}'
+   --JSN '{"hi":"there"}'
+   --JSON '{"hey":"joe"}'
+
+immediate input, whose content is directly in the command line
+parameter, read as JSON.
+
+Note that the case of the option is all uppercase, as opposed to
+L</--json>.
+
+This can come handy when you have read your data structure in a shell
+variable, and don't want to do tricks with redirections.
+
 =item --man
 
 print out the full documentation for the script.
@@ -1063,6 +1086,22 @@ The last form is the negation, i.e. newline printing is disabled. This
 can come handy when you set the environment variable L</TEEPEE_NEWLINE>
 to a non-false value, but you want to disable the newline printing in
 one call.
+
+=item -N
+
+=item --no-input
+
+   -N
+   --no-input
+
+boolean option to signal that there is no input at all. This is handy if
+you just want to expand a template based on a few variables set directly
+on the command line, for example:
+
+   # both "n" for newline and "N" for no-input, then multiple defines
+   $ teepee -nN -d a=b -d c=d -T '[% a %] -> [% c %]'
+   b -> d
+
 
 =item -o 
 
@@ -1128,6 +1167,26 @@ print the version of the script.
    --yaml other.yaml
 
 add an input file indicating that its format is YAML.
+
+=item -Y
+
+=item --YML
+
+=item --YAML
+
+   -Y '"ciao": "a tutti"'
+   --YML '"hi": "there"'
+   --YAML '"hey": "joe"'
+
+immediate input, whose content is directly in the command line
+parameter, read as YAML.
+
+Note that the case of the option is all uppercase, as opposed to
+L</--yaml>.
+
+This can come handy when you have read your data structure in a shell
+variable, and don't want to do tricks with redirections.
+
 
 =back
 

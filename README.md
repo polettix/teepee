@@ -26,15 +26,18 @@ or just click here: [https://github.com/polettix/teepee/raw/master/bundle/teepee
            [-d|--define key=value]
            [-f|--format input-format]
            [-F|--function spec]
-           [-I|--immediate]
+           [-I|--immediate text]
            [-i|--input filename]
            [-j|--jsn|--json filename]
+           [-J|--JSN|--JSON text]
            [-n|--newline|--no-newline]
+           [-N|--no-input]
            [-o|--output filename]
            [-t|--template filename]
            [-T|--text string]
            [-v|--variable string]
            [-y|--yml|--yaml filename]
+           [-Y|--YML|--YAML text]
 
 # EXAMPLES
 
@@ -603,15 +606,12 @@ leaf value only.
 - -I
 - --immediate
 
-        -I
-        --immediate
+        -I '{"ciao":"a tutti"}'
+        --immediate '{"hey":"joe"}'
 
-    boolean option to signal that there is no input at all. This is handy if
-    you just want to expand a template based on a few variables set directly
-    on the command line, for example:
-
-        $ teepee -nI -d a=b -d c=d -T '[% a %] -> [% c %]'
-        b -> d
+    immediate input, whose content is directly in the command line
+    parameter. Does auto-detection and complies with ["--format"](#format) as
+    ["--input"](#input).
 
 - -i
 - --input
@@ -637,6 +637,23 @@ leaf value only.
 
     add an input file indicating that its format is JSON.
 
+- -J
+- --JSN
+- --JSON
+
+        -J '{"ciao":"a tutti"}'
+        --JSN '{"hi":"there"}'
+        --JSON '{"hey":"joe"}'
+
+    immediate input, whose content is directly in the command line
+    parameter, read as JSON.
+
+    Note that the case of the option is all uppercase, as opposed to
+    ["--json"](#json).
+
+    This can come handy when you have read your data structure in a shell
+    variable, and don't want to do tricks with redirections.
+
 - --man
 
     print out the full documentation for the script.
@@ -653,6 +670,20 @@ leaf value only.
     can come handy when you set the environment variable ["TEEPEE\_NEWLINE"](#teepee_newline)
     to a non-false value, but you want to disable the newline printing in
     one call.
+
+- -N
+- --no-input
+
+        -N
+        --no-input
+
+    boolean option to signal that there is no input at all. This is handy if
+    you just want to expand a template based on a few variables set directly
+    on the command line, for example:
+
+        # both "n" for newline and "N" for no-input, then multiple defines
+        $ teepee -nN -d a=b -d c=d -T '[% a %] -> [% c %]'
+        b -> d
 
 - -o 
 - --output
@@ -712,6 +743,23 @@ leaf value only.
         --yaml other.yaml
 
     add an input file indicating that its format is YAML.
+
+- -Y
+- --YML
+- --YAML
+
+        -Y '"ciao": "a tutti"'
+        --YML '"hi": "there"'
+        --YAML '"hey": "joe"'
+
+    immediate input, whose content is directly in the command line
+    parameter, read as YAML.
+
+    Note that the case of the option is all uppercase, as opposed to
+    ["--yaml"](#yaml).
+
+    This can come handy when you have read your data structure in a shell
+    variable, and don't want to do tricks with redirections.
 
 # DIAGNOSTICS
 

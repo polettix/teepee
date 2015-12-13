@@ -2182,7 +2182,7 @@ END_OF_FILE
  use Carp;
  use English qw( -no_match_vars );
  use constant ERROR_CONTEXT => 3;
- { our $VERSION = '1.41_01'; }
+ { our $VERSION = '1.41_02'; }
  
  # Function-oriented interface
  sub import {
@@ -2190,7 +2190,7 @@ END_OF_FILE
  
     for my $sub (@list) {
        croak "subroutine '$sub' not exportable"
-         unless grep { $sub eq $_ } qw( render );
+         unless grep { $sub eq $_ } qw< crumble render traverse >;
  
        my $caller = caller();
  
@@ -2288,7 +2288,7 @@ END_OF_FILE
        $line_no += ($starter =~ tr/\n//);
  
        if (length $code) {
-          if (my $path = _smart_split($code)) {
+          if (my $path = crumble($code)) {
              $compiled .= _variable($path);
           }
           elsif (my ($scalar) =
@@ -2323,32 +2323,93 @@ END_OF_FILE
  } ## end sub _compile_code_text
  
  sub _V {    ## no critic (ProhibitUnusedPrivateSubroutines)
-    my $value = shift;
-    return $value unless @_;
+    my $ref_to_value = \shift;
+    my $ref_wanted = shift;
+    return ($ref_wanted ? $ref_to_value : $$ref_to_value) unless @_;
  
-    my $pathref = shift;
-    if (! ref $pathref) {
-       return $value if defined($pathref) && ! length($pathref);
-       $pathref = _smart_split($pathref);
+    my $path_input = shift;
+    return ($ref_wanted ? undef : '') unless defined $path_input;
+ 
+    my $crumbs;
+    if (ref $path_input) {
+       $crumbs = $path_input;
     }
-    return '' unless defined $pathref;
+    else {
+       return ($ref_wanted ? $ref_to_value : $$ref_to_value)
+          if defined($path_input) && ! length($path_input);
+       $crumbs = crumble($path_input);
+    }
+    return ($ref_wanted ? undef : '') unless defined $crumbs;
  
     # go down the rabbit hole
-    for my $segment (@$pathref) {
-       if (ref($value) eq 'HASH') {
-          $value = $value->{$segment};
+    for my $crumb (@$crumbs) {
+ 
+       # $key is what we will look into $$ref_to_value. We don't use
+       # $crumb directly as we might change $key in the loop, and we
+       # don't want to spoil $crumbs
+       my $key = $crumb;
+ 
+       # $ref tells me how to look down into $$ref_to_value, i.e. as
+       # an ARRAY or a HASH
+       my $ref = ref $$ref_to_value;
+ 
+       # if $ref is not true, we hit a wall. How we proceed depends on
+       # whether we were asked to auto-vivify or not.
+       if (! $ref) {
+          return '' unless $ref_wanted; # don't bother going on
+ 
+          # auto-vivification requested! $key will tell us how to
+          # proceed further, hopefully
+          $ref = ref $key;
        }
-       elsif (ref($value) eq 'ARRAY') {
-          $value = $value->[$segment];
+ 
+       # if $key is a reference, it will tell us what's expected now
+       if (my $key_ref = ref $key) {
+ 
+          # if $key_ref is not the same as $ref there is a mismatch
+          # between what's available ($ref) and what' expected ($key_ref)
+          return $ref_wanted ? undef : '' if $key_ref ne $ref;
+ 
+          # OK, data and expectations agree. Get the "real" key
+          if ($key_ref eq 'ARRAY') {
+             $key = $crumb->[0]; # it's an array, key is (only) element
+          }
+          elsif ($key_ref eq 'HASH') {
+             ($key) = keys %$crumb; # hash... key is (only) key
+          }
        }
-       else { # nothing to go down further... simply not found
-          return '';
+ 
+       # if $ref is still not true at this point, we're doing
+       # auto-vivification and we have a plain key. Some guessing
+       # will be needed! Plain non-negative integers resolve to ARRAY,
+       # otherwise we'll consider $key as a HASH key
+       $ref ||= ($key =~ m{\A (?: 0 | [1-9]\d*) \z}mxs)
+             ? 'ARRAY' : 'HASH';
+ 
+       # time to actually do the next step
+       if ($ref eq 'HASH') {
+          $ref_to_value = \($$ref_to_value->{$key});
+       }
+       elsif ($ref eq 'ARRAY') {
+          $ref_to_value = \($$ref_to_value->[$key]);
+       }
+       else { # don't know what to do with other references!
+          return $ref_wanted ? undef : '';
        }
     } ## end for my $segment (@$pathref)
  
-    # normalize output, substitute undef with ''
-    return defined($value) ? $value : '';
+    # normalize output, substitute undef with '' unless $ref_wanted
+    return $ref_wanted ? $ref_to_value
+       : defined($$ref_to_value) ? $$ref_to_value : '';
  } ## end sub _V
+ 
+ sub traverse {
+    my %args = (@_ && ref($_[0])) ? %{$_[0]} : @_;
+    return unless defined $args{data};
+    my $ref_wanted = $args{ref} || $args{reference_to_value} || 0;
+    my $path = exists($args{path}) ? $args{path} : '';
+    return _V($args{data}, $ref_wanted, $path);
+ }
  
  sub V  { return '' }
  sub A  { return }
@@ -2374,16 +2435,17 @@ END_OF_FILE
              \%variables = (\%variables, \%\$vars);
           }
           else {
-             \$V = \$vars; # keep \%variables around anyway
+             \$V = \$vars;
+             \%variables = (HASH => { \%variables }, REF => \$V);
           }
        }
  
        no warnings 'redefine';
-       local *V  = sub { return           _V(\$V, \@_)       ; };
-       local *A  = sub { return        \@{_V(\$V, \@_) || []}; };
-       local *H  = sub { return        \%{_V(\$V, \@_) || {}}; };
-       local *HK = sub { return keys   \%{_V(\$V, \@_) || {}}; };
-       local *HV = sub { return values \%{_V(\$V, \@_) || {}}; };
+       local *V  = sub { return           _V(\$V, 0, \@_)       ; };
+       local *A  = sub { return        \@{_V(\$V, 0, \@_) || []}; };
+       local *H  = sub { return        \%{_V(\$V, 0, \@_) || {}}; };
+       local *HK = sub { return keys   \%{_V(\$V, 0, \@_) || {}}; };
+       local *HV = sub { return values \%{_V(\$V, 0, \@_) || {}}; };
        use warnings 'redefine';
  
        local *STDOUT;
@@ -2464,11 +2526,12 @@ END_OF_FILE
  END_OF_CHUNK
  } ## end sub _simple_text
  
- sub _smart_split {
+ sub crumble {
     my ($input) = @_;
     return unless defined $input;
  
     $input =~ s{\A\s+|\s+\z}{}gmxs;
+    return [] unless length $input;
  
     my $sq    = qr{(?mxs: ' [^']* ' )}mxs;
     my $dq    = qr{(?mxs: " (?:[^\\"] | \\.)* " )}mxs;
@@ -2512,8 +2575,9 @@ END_OF_FILE
        } ## end while ((pos($part) || 0) ...)
        $part = join '', @subparts;
     } ## end for my $part (@path)
+ 
     return \@path;
- } ## end sub _smart_split
+ } ## end sub crumble
  
  sub _variable {
     my $path = shift;
@@ -3438,7 +3502,7 @@ END_OF_FILE
 } ## end BEGIN
 # __MOBUNDLE_INCLUSION__
 
-use Template::Perlish qw< render >;
+use Template::Perlish 1.41 qw< render >;
 use Data::Crumbr;
 
 my @YAML_MODULES = qw<
@@ -3473,16 +3537,19 @@ GetOptions(
      define|d=s@
      format|f=s
      function|F=s
-     immediate|I!
      input|i=s@
      newline|n!
+     no-input|N!
      output|o=s
      template|t=s
      text|T=s
      variable|v=s
      >,
-     'json|jsn|j=s@' => sub { push @{$config{input}}, [json => $_[1]] },
-     'yaml|yml|y=s@' => sub { push @{$config{input}}, [yaml => $_[1]] },
+     'immediate|I=s@' => sub { push @{$config{input}},          \$_[1]  },
+     'json|jsn|j=s@'  => sub { push @{$config{input}}, [json =>  $_[1]] },
+     'JSON|JSN|J=s@'  => sub { push @{$config{input}}, [json => \$_[1]] },
+     'yaml|yml|y=s@'  => sub { push @{$config{input}}, [yaml =>  $_[1]] },
+     'YAML|YML|Y=s@'  => sub { push @{$config{input}}, [yaml => \$_[1]] },
 ) or pod2usage(-verbose => 99, -sections => 'USAGE');
 pod2usage(message => "$0 $VERSION", -verbose => 99, -sections => ' ')
   if $config{version};
@@ -3567,10 +3634,11 @@ sub read_inputs {
    my ($retval, $retvalref);
 
    my @inputs = @{$cfg->{input}};
-   @inputs = '-' if (! scalar(@inputs)) && (! $cfg->{immediate});
+   @inputs = '-' if (! scalar(@inputs)) && (! $cfg->{'no-input'});
    my $counter = 0;
    for my $input (@inputs) {
-      my ($format, $filename) = ref($input) ? @$input : (undef, $input);
+      my ($format, $filename) = (ref($input) eq 'ARRAY')
+         ? @$input : (undef, $input);
       my $data = read_input($filename, $format || $cfg->{format});
       if ($cfg->{'auto-key'}) {
          my $prefix = $cfg->{'auto-key-prefix'};
@@ -3808,15 +3876,18 @@ or just click here: L<https://github.com/polettix/teepee/raw/master/bundle/teepe
           [-d|--define key=value]
           [-f|--format input-format]
           [-F|--function spec]
-          [-I|--immediate]
+          [-I|--immediate text]
           [-i|--input filename]
           [-j|--jsn|--json filename]
+          [-J|--JSN|--JSON text]
           [-n|--newline|--no-newline]
+          [-N|--no-input]
           [-o|--output filename]
           [-t|--template filename]
           [-T|--text string]
           [-v|--variable string]
           [-y|--yml|--yaml filename]
+          [-Y|--YML|--YAML text]
 
 =head1 EXAMPLES
 
@@ -4436,15 +4507,12 @@ the options and some examples from the synopsis.
 
 =item --immediate
 
-   -I
-   --immediate
+   -I '{"ciao":"a tutti"}'
+   --immediate '{"hey":"joe"}'
 
-boolean option to signal that there is no input at all. This is handy if
-you just want to expand a template based on a few variables set directly
-on the command line, for example:
-
-   $ teepee -nI -d a=b -d c=d -T '[% a %] -> [% c %]'
-   b -> d
+immediate input, whose content is directly in the command line
+parameter. Does auto-detection and complies with L</--format> as
+L</--input>.
 
 =item -i
 
@@ -4473,6 +4541,25 @@ Note: only allowed data structures are hashes at the top level.
 
 add an input file indicating that its format is JSON.
 
+=item -J
+
+=item --JSN
+
+=item --JSON
+
+   -J '{"ciao":"a tutti"}'
+   --JSN '{"hi":"there"}'
+   --JSON '{"hey":"joe"}'
+
+immediate input, whose content is directly in the command line
+parameter, read as JSON.
+
+Note that the case of the option is all uppercase, as opposed to
+L</--json>.
+
+This can come handy when you have read your data structure in a shell
+variable, and don't want to do tricks with redirections.
+
 =item --man
 
 print out the full documentation for the script.
@@ -4491,6 +4578,22 @@ The last form is the negation, i.e. newline printing is disabled. This
 can come handy when you set the environment variable L</TEEPEE_NEWLINE>
 to a non-false value, but you want to disable the newline printing in
 one call.
+
+=item -N
+
+=item --no-input
+
+   -N
+   --no-input
+
+boolean option to signal that there is no input at all. This is handy if
+you just want to expand a template based on a few variables set directly
+on the command line, for example:
+
+   # both "n" for newline and "N" for no-input, then multiple defines
+   $ teepee -nN -d a=b -d c=d -T '[% a %] -> [% c %]'
+   b -> d
+
 
 =item -o 
 
@@ -4556,6 +4659,26 @@ print the version of the script.
    --yaml other.yaml
 
 add an input file indicating that its format is YAML.
+
+=item -Y
+
+=item --YML
+
+=item --YAML
+
+   -Y '"ciao": "a tutti"'
+   --YML '"hi": "there"'
+   --YAML '"hey": "joe"'
+
+immediate input, whose content is directly in the command line
+parameter, read as YAML.
+
+Note that the case of the option is all uppercase, as opposed to
+L</--yaml>.
+
+This can come handy when you have read your data structure in a shell
+variable, and don't want to do tricks with redirections.
+
 
 =back
 
