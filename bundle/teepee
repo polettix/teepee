@@ -5,7 +5,7 @@ use Carp;
 use Pod::Usage qw< pod2usage >;
 use Getopt::Long qw< :config gnu_getopt >;
 use English qw< -no_match_vars >;
-my $VERSION = '0.4.0';
+my $VERSION = '0.4.1';
 use List::Util qw< reduce >;
 use I18N::Langinfo qw(langinfo CODESET);
 use Scalar::Util qw< refaddr blessed >;
