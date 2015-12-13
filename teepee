@@ -171,8 +171,12 @@ sub read_inputs {
    } ## end for my $filename (@inputs)
 
    for my $item (@{$cfg->{define}}) {
-      my ($key, $value) = split /=/, $item, 2;
-      my $pointer = pointer_to_element($retval, split /\./, $key);
+      my ($key, $value) = ref($item) ? @$item : split /=/, $item, 2;
+      my $path = Template::Perlish::crumble($key);
+      my $pointer = Template::Perlish::traverse(\$retval, $key)
+       or pod2usage(
+         message => "invalid definition key <$key>",
+         -verbose => 99, -sections => 'USAGE');
       $$pointer = $value;
    }
 
@@ -264,16 +268,6 @@ sub detect_format {
    # bail out
    die "cannot infer format for file '$filename'\n";
 } ## end sub detect_format
-
-# Adapted from http://perlmonks.org/?node_id=443584
-sub pointer_to_element {
-   return reduce {
-        ref($$a) eq 'ARRAY'                  ? \($$a->[$b])
-      : ref($$a) eq 'HASH'                   ? \($$a->{$b})
-      : ($b =~ m{\A(?: 0 | [1-9]\d* )\z}mxs) ? \($$a->[$b])
-      :                                        \($$a->{$b});
-   } \shift, @_;
-}
 
 sub JSON {
    my $module = load_any(@JSON_MODULES);
