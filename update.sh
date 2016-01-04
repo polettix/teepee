@@ -1,10 +1,11 @@
 #!/bin/bash
 ME=$(readlink -f "$0")
 MYDIR=$(dirname "$ME")
+LDIR="$MYDIR/_local"
 
 # when present, it can do location-specific stuff, e.g. setting variable
 # MOBUNDLE_LOCAL_PARAMETERS to customize invocation to mobundle
-[ -r "$MYDIR/update-local.sh" ] && source "$MYDIR/update-local.sh"
+[ -r "$LDIR/update-local.sh" ] && source "$LDIR/update-local.sh"
 
 mobundle -PB "$MYDIR/teepee"          \
    -o "$MYDIR/bundle/teepee"          \
