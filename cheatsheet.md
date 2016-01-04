@@ -4,9 +4,7 @@ title: Cheatsheet
 permalink: /cheatsheet/
 ---
 
-# TEEPEE CHEATSHEET
-
-A few tricks with teepee!
+## Assumptions
 
 We will assume to have the following `filename.json` JSON file lying
 around:
