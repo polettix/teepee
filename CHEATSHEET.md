@@ -164,9 +164,12 @@ following are equivalent:
     $ teepee -nj filename.json -F 2+2
     4
 
+This comes handy for calling a few pre-defined functions as explained
+below.
+
 ### Pretty-Printing
 
-Pretty-printing in JSON:
+Pretty-printing (or converting!) in JSON:
 
     $ teepee -y filename.yaml -FJSON
     {
@@ -200,9 +203,7 @@ Pretty-printing in JSON:
         }
     }
 
-
-
-Pretty-printing in YAML:
+Pretty-printing (or converting!) in YAML:
 
     $ teepee -j filename.json -FYAML
     ---
@@ -280,6 +281,37 @@ You might want to get a JSON-compliant representation of each line:
     {"name":"Flavio"}
     {"surname":"Poletti"}
 
+### Variables Accessors
 
+Variables accessors are shortcut functions that allow expanding a
+variable according to the (expected) type.
 
+Scalar variables can be accessed via `V` (for Variable, not for
+Scalar!):
+
+    # another alternative for -v...
+    $ teepee -nj filename.json -F 'V "cpan.favorites.Moo.id"'
+    HAARG
+
+    $ teepee -nj filename.json -F '"*" x length V "cpan.favorites.Moo.id"'
+    *****
+
+Array references are de-referenced using `A`:
+
+    $ teepee -nj filename.json -F 'A "cpan.latest"'
+    4
+
+    $ teepee -j filename.json -F 'print "- $_\n" for A "cpan.latest"'
+    - Data::Crumbr
+    - Template::Perlish
+    - Graphics::Potrace
+    - Log::Log4perl::Tiny
+
+Hashes can be dereferenced in three ways: directly with `H`, only keys
+with `HK`, only values with `HV`. We'll see an examples with keys only:
+
+    $ teepee -j filename.json -F 'print "- $_\n" for HK "cpan.favorites"'
+    - Moo
+    - Dancer
+    - JSON
 
