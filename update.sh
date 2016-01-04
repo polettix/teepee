@@ -2,6 +2,8 @@
 ME=$(readlink -f "$0")
 MYDIR=$(dirname "$ME")
 
+# when present, it can do location-specific stuff, e.g. setting variable
+# MOBUNDLE_LOCAL_PARAMETERS to customize invocation to mobundle
 [ -r "$MYDIR/update-local.sh" ] && source "$MYDIR/update-local.sh"
 
 mobundle -PB "$MYDIR/teepee"          \
@@ -16,7 +18,8 @@ mobundle -PB "$MYDIR/teepee"          \
    -n Data::Crumbr/Util.pm            \
    -n Data::Crumbr/Default/JSON.pm    \
    -n Data::Crumbr/Default/Default.pm \
-   -n Data::Crumbr/Default/URI.pm
+   -n Data::Crumbr/Default/URI.pm     \
+   $MOBUNDLE_LOCAL_PARAMETERS
 chmod +x "$MYDIR/bundle/teepee"
 
 pod2markdown "$MYDIR/teepee" > "$MYDIR/README.md"
