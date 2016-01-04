@@ -4,20 +4,76 @@ layout: default
 
 <div class="home">
 
-  <h1 class="page-heading">Posts</h1>
+    <h1>Get the most out of your APIs... from the shell!</h1>
 
-  <ul class="post-list">
-    {% for post in site.posts %}
-      <li>
-        <span class="post-meta">{{ post.date | date: "%b %-d, %Y" }}</span>
+    <p>Quick! Install the bundled version:</p>
 
-        <h2>
-          <a class="post-link" href="{{ post.url | prepend: site.baseurl }}">{{ post.title }}</a>
-        </h2>
-      </li>
-    {% endfor %}
-  </ul>
+{% highlight bash %}
+curl -LO https://github.com/polettix/teepee/raw/master/bundle/teepee
+#   wget https://github.com/polettix/teepee/raw/master/bundle/teepee
+chmod +x teepee
+{% endhighlight %}
 
-  <p class="rss-subscribe">subscribe <a href="{{ "/feed.xml" | prepend: site.baseurl }}">via RSS</a></p>
+<p>Now you can do this:</p>
+
+{% highlight bash %}
+# something about me
+metacpan='http://api.metacpan.org/v0'
+curl "$metacpan/author/POLETTIX" \
+  | teepee -nT "Hi! I'm [% name %] <[% email.0 %]>."
+# Hi! I'm Flavio Poletti <polet...pan.org>.
+
+# for extracting multiple data, let's cache in a variable
+me=$(curl "$metacpan/author/POLETTIX")
+teepee -I "$me" -nT 'See my big face at [% gravatar_url %]?s=200'
+# See my big face at http://www.gravatar.com/av...b57.png?s=200
+
+# my favourite band
+mbrz='http://musicbrainz.org/ws/2'
+pjq=$(curl "$mbrz/artist?fmt=json&limit=1&query=Pearl%20Jam")
+name=$(teepee -I "$pjq" -v artists.0.name)
+country=$(teepee -I "$pjq" -v artists.0.country)
+echo "$name rock from the $country"'!'
+# Pearl Jam rock from the US!
+
+# let's just isolate data about Pearl Jam from the query response
+pj=$(teepee -I "$pjq" -F'YAML(V "artists.0")')
+year=$(teepee -I "$pj" -v "'life-span'.begin")
+city=$(teepee -I "$pj" -v "'begin-area'.name")
+echo "they started from $city in $year"
+# they started from Seattle in 1990
+
+# we can also pretty-print, especially handy with compact JSON
+ap='http://www.astro-phys.com/api/de406'
+curl "$ap/coefficients?date=1972-11-9&bodies=mars"
+# {"date": 2441630.5, "type": "chebyshev", "results": {"mars": ...
+curl "$ap/coefficients?date=1972-11-9&bodies=mars" \
+    | teepee -FYAML
+# ---
+# date: 2441630.5
+# results:
+#   mars:
+#     coefficients:
+#       -
+#         - -221246363.667206
+#         - 26761105.8067001
+#         ...
+#     end: 2441680.5
+#     start: 2441616.5
+# type: chebyshev
+# unit: km
+
+# or do the pretty-printing of a sub-section only
+teepee -I "$pj" -F'YAML(V "aliases")'
+# ---
+# -
+#   begin-date: ~
+#   end-date: ~
+#   locale: ~
+#   name: 'Mookie Blaylock'
+#   primary: ~
+#   sort-name: 'Mookie Blaylock' type: ~
+
+{% endhighlight %}
 
 </div>
