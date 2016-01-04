@@ -5,7 +5,7 @@ use Carp;
 use Pod::Usage qw< pod2usage >;
 use Getopt::Long qw< :config gnu_getopt >;
 use English qw< -no_match_vars >;
-my $VERSION = '0.5.0';
+my $VERSION = '0.5.2';
 use List::Util qw< reduce >;
 use I18N::Langinfo qw(langinfo CODESET);
 use Scalar::Util qw< refaddr blessed >;
@@ -3880,7 +3880,11 @@ or this
 
    wget https://github.com/polettix/teepee/raw/master/bundle/teepee
 
-or just click here: L<https://github.com/polettix/teepee/raw/master/bundle/teepee>
+or just click here:
+L<https://github.com/polettix/teepee/raw/master/bundle/teepee>.
+
+For way more than you want to know about C<teepee> visit also
+L<http://github.polettix.it/teepee/>.
 
 =head1 USAGE
 
@@ -3909,10 +3913,82 @@ or just click here: L<https://github.com/polettix/teepee/raw/master/bundle/teepe
 
 =head1 EXAMPLES
 
-   shell$ teepee -i data.yml -t template.file -o generated
-   
-   shell$ teepee -i data.json -T 'hello [% customer.name %]'
+   # suppose to start from this data structure in JSON inside data.json,
+   # YAML works much in the same way.
+   {
+      "name": "Flavio",
+      "surname": "Poletti",
+      "cpan": {
+         "metacpan": "https://metacpan.org/author/POLETTIX",
+         "latest": [
+            "Data::Crumbr",
+            "Template::Perlish",
+            "Graphics::Potrace",
+            "Log::Log4perl::Tiny"
+         ],
+         "favorites": {
+            "JSON":   { "id": "MAKAMAKA" },
+            "Dancer": { "id": "YANICK"   },
+            "Moo":    { "id": "HAARG"    }
+         },
+         "using": {
+            "JSON": { "id": "https://metacpan.org/release/JSON" }
+         },
+         "id": "POLETTIX"
+      }
+   }
 
+   # get a few variables:
+   # -n prints a newline at theend
+   # -i indicates the input file to use
+   # -v indicates the "path" into the data structure, can include
+   #    indexes in arrays
+   $ teepee -ni data.json -v name
+   Flavio
+   $ teepee -ni data.json -v cpan.favoritex.JSON.id
+   MAKAMAKA
+   $ teepee -ni data.json -v cpan.using.JSON.id
+   https://metacpan.org/release/JSON
+   $ teepee -ni data.json -v cpan.latest.1
+   Template::Perlish
+
+   # pretty-print in JSON or YAML, output to /dev/null (useful, uh?)
+   $ teepee -i data.json -FJSON -o /dev/null
+   $ teepee -i data.json -FYAML -o /dev/null
+
+   # input might be available directly on the command line, just use
+   # the uppercase variant
+   $ data=$(< data.json)
+   $ teepee -nI "$data" -v cpan.id
+   POLETTIX
+
+   # you can format your output using templates, e.g. from command line
+   $ teepee -nI "$data" -T 'Hello, [% name %] [% surname %]!'
+   Hello, Flavio Poletti!
+
+   # templates can be read from files. Lowercase option means file
+   $ teepee -nI "$data" -t template.txt -o /dev/null
+
+   # To see how you can write templates, please look at the
+   # documentation for Template::Perlish at
+   # https://metacpan.org/pod/Template::Perlish
+
+   # you can set some values in the data structure from the command
+   # line, just use option -d
+   $ teepee -nI "$data" -d name=FLAVIO
+      \ -T 'Hello, [% name %] [% surname %]!'
+   Hello, FLAVIO Poletti!
+
+   # no need for the key/index to already exist when using -d
+   $ teepee -nI "$data" -d github.id=polettix \
+      -T '[% cpan.id %]@CPAN is [% github.id %]@GitHub'
+   POLETTIX@CPAN is polettix@GitHub
+
+   # there is actually no need to read any data structure at all
+   # but this has to be indicated using -N
+   $ teepee -nN -d github.id=polettix -d cpan.id=POLETTIX \
+      -T '[% cpan.id %]@CPAN is [% github.id %]@GitHub'
+   POLETTIX@CPAN is polettix@GitHub
 
 =head1 DESCRIPTION
 
