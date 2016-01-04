@@ -1,0 +1,39 @@
+# TEEPEE CHEATSHEET
+
+A few tricks with teepee!
+
+## Input
+
+### Input from File/Filehandle
+
+Reading from a file while auto-detecting the format:
+
+    teepee -i filename.json ...
+    teepee -i filename.yaml ...
+
+Input format can be explicit in different ways. To force JSON:
+
+    teepee -j somefile.json ...
+    teepee -j somefile.json -f json ...
+
+To force YAML:
+
+    teepee -y somefile.yaml ...
+    teepee -y somefile.yaml -f yaml ...
+
+Input comes from standard input by default, no need to specify anything
+in this case (or just use filename `-`):
+
+    # auto-detect
+    cat somefile.json | teepee ...
+    cat somefile.json | teepee -i - ...
+
+    # force JSON
+    cat somefile.json | teepee -f json ...
+    cat somefile.json | teepee -j - ...
+
+    # force YAML
+    cat somefile.yaml | teepee -f yaml ...
+    cat somefile.yaml | teepee -y - ...
+
+
