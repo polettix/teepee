@@ -310,7 +310,7 @@ Array references are de-referenced using `A`:
 Hashes can be dereferenced in three ways: directly with `H`, only keys
 with `HK`, only values with `HV`:
 
-    teepee -nj filename.json -F 'my %favs = H "cpan.favorites"; $favs{JSON}{id}'
+    $ teepee -nj filename.json -F 'my %favs = H "cpan.favorites"; $favs{JSON}{id}'
     MAKAMAKA
 
     $ teepee -j filename.json -F 'print "- $_\n" for HK "cpan.favorites"'
