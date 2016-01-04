@@ -308,10 +308,17 @@ Array references are de-referenced using `A`:
     - Log::Log4perl::Tiny
 
 Hashes can be dereferenced in three ways: directly with `H`, only keys
-with `HK`, only values with `HV`. We'll see an examples with keys only:
+with `HK`, only values with `HV`:
+
+    teepee -nj filename.json -F 'my %favs = H "cpan.favorites"; $favs{JSON}{id}'
+    MAKAMAKA
 
     $ teepee -j filename.json -F 'print "- $_\n" for HK "cpan.favorites"'
     - Moo
     - Dancer
     - JSON
 
+    $ teepee -j filename.json -F 'print "- $_->{id}\n" for HV "cpan.favorites"'
+    - MAKAMAKA
+    - HAARG
+    - YANICK
