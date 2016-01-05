@@ -1,0 +1,19 @@
+# Site navigation links
+
+- title: Home
+  url: /
+
+- title: Code
+  url: /code/
+
+- title: Documentation
+  url: /documentation/
+
+- title: Contacts
+  url: /contacts/
+
+- title: Search
+  url: /search/
+
+- title: Cheatsheet
+  url: /cheatsheet/
