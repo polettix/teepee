@@ -5,7 +5,7 @@ locale: en_US
 description: 'Get the most out of your APIs... from the shell!'
 logo: teepee-sfumati.png
 search: true
-url: http://localhost:54000
+url: http://github.polettix.it/teepee
 
 # Jekyll configuration
 
