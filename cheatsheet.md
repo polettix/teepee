@@ -4,6 +4,11 @@ title: Cheatsheet
 permalink: /cheatsheet/
 ---
 
+This page provides you a few more hints on how to use `teepee`.
+
+1. TOC
+{:toc}
+
 ## Assumptions
 
 We will assume to have the following `filename.json` JSON file lying
