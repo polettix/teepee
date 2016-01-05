@@ -8,6 +8,7 @@ image:
   feature:
 search_omit: true
 sitemap: false
+thin_site_title: true
 ---
   
 <!-- Search form -->
