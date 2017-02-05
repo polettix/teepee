@@ -15,7 +15,7 @@ The [official repository](https://github.com/polettix/teepee) is on
 
 ## Installation
 
-More on the [code](/code/) page!
+More on the [code](code/) page!
 
 {% highlight bash %}
 curl -LO https://github.com/polettix/teepee/raw/master/bundle/teepee
@@ -29,7 +29,7 @@ call `teepee` in some easy way!
 
 ## So What Can I Do?
 
-More on the [cheatsheet](/cheatsheet/) page!
+More on the [cheatsheet](cheatsheet/) page!
 
 {% highlight bash %}
 # something about me
@@ -94,7 +94,10 @@ teepee -I "$pj" -F'YAML(V "aliases")'
 ## Latest posts
 
 <ul class="post-list">
-{% for post in site.posts limit:10 %} 
-  <li><article><a href="{% if post.link %}{{ post.link }}{% else %}{{ site.url }}{{ post.url }}{% endif %}">{{ post.title }} <span class="entry-date"><time datetime="{{ post.date | date_to_xmlschema }}">{{ post.date | date: "%B %d, %Y" }}</time></span>{% if post.excerpt %} <span class="excerpt">{{ post.excerpt }}</span>{% endif %}</a></article></li>
-{% endfor %}
-</ul>
+{% for post in site.posts limit:10 %} <li><article><a href="{% if
+post.link %}{{ post.link }}{% else %}{{ site.url }}{{ site.baseurl }}{{
+post.url }}{% endif
+%}">{{ post.title }} <span class="entry-date"><time datetime="{{ post.date
+| date_to_xmlschema }}">{{ post.date | date: "%B %d, %Y"
+}}</time></span>{% if post.excerpt %} <span class="excerpt">{{
+post.excerpt }}</span>{% endif %}</a></article></li> {% endfor %} </ul>
