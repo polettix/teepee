@@ -173,7 +173,6 @@ independently of the input format: _hash_ (i.e. _object_ in JSON),
 _array_ or _scalar_. Whatever the input, a big _hash_/_object_ is
 built and eventually consumed by the templates; every time the top-level
 element in the input is not a _hash_, the following applies:
-applies:
 
 - a (hopefully) unique key is generated joining ["--auto-key-prefix"](#auto-key-prefix), an
 increasing integer number starting from `0`, and [--auto-key-suffix](https://metacpan.org/pod/--auto-key-suffix).
@@ -640,40 +639,74 @@ leaf value only.
 
     Currently available functions are:
 
-    - - `crumbr_as(type)`
+    - `base64`
+
+        encode the argument with RFC 2045 base64 algorithm, use it like this:
+
+            base64('text') # "dGV4dA=="
+
+    - `indent`
+
+        indent the argument, 4 blanks by default. Use it like this:
+
+            indent('whatever')  #  "    whatever"
+            indent('xxx', 7)    #  "       xxx"
+            indent('X', '  ')   #  "  X"
+
+    - `slurp`
+
+        read a whole file, optionally setting the encoding via `binmode` (defaults
+        to `:raw`, i.e. no reading tricks applied). Use it like this:
+
+            slurp('/path/to/filen.ame');
+
+    - `crumbr_as(type)`
 
         where `type` can be `URI`, `Default` or `JSON`;
 
-    - - `crumbr`
+    - `crumbr`
 
         alias to `uri_crumbr`
 
-    - - `uri_crumbr`
+    - `uri_crumbr`
 
         use crumbr with the `URI` alternative
 
-    - - `exact_crumbr`
+    - `exact_crumbr`
 
         use crumbr with the _exact_ `Default` alternative
 
-    - - `json_crumbr`
+    - `json_crumbr`
 
         use crumbr with the `JSON` alternative
 
-    - - `JSON`
+    - `JSON`
 
         dumps the input as pretty-printed JSON (so this is more readable)
 
-    - - `YAML`
+    - `YAML`
 
         dumps the input as YAML (so this is more readable)
 
-    The functions above work, by default, on the overall input data. You can
-    pass an optional (additional) parameter with the data structure you want
-    it to work upon, e.g. if you just want to pretty-print an item you can
-    do this:
+    The functions above work, by default, on the overall input data, unless
+    indicated otherwise. You can pass an optional (additional) parameter with
+    the data structure you want it to work upon, e.g. if you just want to
+    pretty-print an item you can do this:
 
         $ teepee -i input.json -F'YAML(V("some.inner.hash"))'
+
+    Note that you can use `slurp`, `base64` and `indent` to read in any
+    file, encode it and possibly put it as content inside a YAML file. E.g.
+    you might do this to pass a generic file via cloud-init:
+
+        #cloud-config
+        write_files:
+        - encoding: base64
+          path: /etc/whatever
+          owner: root:root
+          permissions: '0644'
+          content: |
+        [%= indent(base64(slurp(V 'filename')), 5) %]
 
 - --help
 

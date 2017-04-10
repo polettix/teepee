@@ -99,6 +99,9 @@ my $template = read_template(\%config);
    *Template::Perlish::json_crumbr  = sub { $crumbr->('JSON', @_) };
    *Template::Perlish::JSON         = sub { JSON($ic->(@_)) };
    *Template::Perlish::YAML         = sub { YAML($ic->(@_)) };
+   *Template::Perlish::slurp        = \&slurp;
+   *Template::Perlish::indent       = \&indent;
+   *Template::Perlish::base64       = \&base64;
 }
 my $ofh = get_output_fh($config{output}, $config{binmode});
 my $output = render($template, $vars);
@@ -180,6 +183,7 @@ sub read_inputs {
       $$pointer = $value;
    }
 
+   $retval //= {};
    return ($retval, $counter);
 } ## end sub read_inputs
 
@@ -203,8 +207,8 @@ sub octets_to_characters {
    return Encode::decode('UTF-8', $_[0]);
 }
 
-sub slurp_octets {
-   my ($filename) = @_;
+sub slurp {
+   my ($filename, $binmode) = @_;
    die "undefined filename\n" unless defined $filename;
    my $fh = \*STDIN;
    if ($filename ne '-') {
@@ -212,10 +216,25 @@ sub slurp_octets {
       open $fh, '<', $filename
         or die "input open('$filename'): $OS_ERROR\n";
    }
-   binmode $fh, ':raw';
+   binmode $fh, $binmode // ':raw';
    local $/;
    return <$fh>;
-} ## end sub slurp_octets
+}
+
+sub indent {
+   my ($text, $blanks) = @_;
+   $blanks //= 4;
+   $blanks = ' ' x $blanks if $blanks =~ m{\A \d+ \z}mxs;
+   $text =~ s{^}{$blanks}gmxs;
+   return $text;
+}
+
+sub base64 {
+   require MIME::Base64;
+   return MIME::Base64::encode_base64($_[0]);
+}
+
+sub slurp_octets { goto \&slurp }
 
 sub load_any {
    for my $candidate (@_) {
@@ -527,7 +546,6 @@ independently of the input format: I<hash> (i.e. I<object> in JSON),
 I<array> or I<scalar>. Whatever the input, a big I<hash>/I<object> is
 built and eventually consumed by the templates; every time the top-level
 element in the input is not a I<hash>, the following applies:
-applies:
 
 =over
 
@@ -1041,42 +1059,76 @@ Currently available functions are:
 
 =over
 
-=item - C<crumbr_as(type)>
+=item * C<base64>
+
+encode the argument with RFC 2045 base64 algorithm, use it like this:
+
+   base64('text') # "dGV4dA=="
+
+=item * C<indent>
+
+indent the argument, 4 blanks by default. Use it like this:
+
+   indent('whatever')  #  "    whatever"
+   indent('xxx', 7)    #  "       xxx"
+   indent('X', '  ')   #  "  X"
+
+=item * C<slurp>
+
+read a whole file, optionally setting the encoding via C<binmode> (defaults
+to C<:raw>, i.e. no reading tricks applied). Use it like this:
+
+   slurp('/path/to/filen.ame');
+
+=item * C<crumbr_as(type)>
 
 where C<type> can be C<URI>, C<Default> or C<JSON>;
 
-=item - C<crumbr>
+=item * C<crumbr>
 
 alias to C<uri_crumbr>
 
-=item - C<uri_crumbr>
+=item * C<uri_crumbr>
 
 use crumbr with the C<URI> alternative
 
-=item - C<exact_crumbr>
+=item * C<exact_crumbr>
 
 use crumbr with the I<exact> C<Default> alternative
 
-=item - C<json_crumbr>
+=item * C<json_crumbr>
 
 use crumbr with the C<JSON> alternative
 
-=item - C<JSON>
+=item * C<JSON>
 
 dumps the input as pretty-printed JSON (so this is more readable)
 
-=item - C<YAML>
+=item * C<YAML>
 
 dumps the input as YAML (so this is more readable)
 
 =back
 
-The functions above work, by default, on the overall input data. You can
-pass an optional (additional) parameter with the data structure you want
-it to work upon, e.g. if you just want to pretty-print an item you can
-do this:
+The functions above work, by default, on the overall input data, unless
+indicated otherwise. You can pass an optional (additional) parameter with
+the data structure you want it to work upon, e.g. if you just want to
+pretty-print an item you can do this:
 
    $ teepee -i input.json -F'YAML(V("some.inner.hash"))'
+
+Note that you can use C<slurp>, C<base64> and C<indent> to read in any
+file, encode it and possibly put it as content inside a YAML file. E.g.
+you might do this to pass a generic file via cloud-init:
+
+   #cloud-config
+   write_files:
+   - encoding: base64
+     path: /etc/whatever
+     owner: root:root
+     permissions: '0644'
+     content: |
+   [%= indent(base64(slurp(V 'filename')), 5) %]
 
 =item --help
 
