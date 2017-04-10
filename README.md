@@ -990,7 +990,7 @@ Flavio Poletti `polettix@cpan.org`
 
 # LICENCE AND COPYRIGHT
 
-Copyright (c) 2015, Flavio Poletti `polettix@cpan.org`.
+Copyright (c) 2015,2017 Flavio Poletti `polettix@cpan.org`.
 
 This module is free software.  You can redistribute it and/or
 modify it under the terms of the Artistic License 2.0.
