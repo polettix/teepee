@@ -4967,11 +4967,9 @@ at https://metacpan.org/source/ETHER/YAML-Tiny-1.69/LICENSE.
 =back
 
 
-
-
 =head1 BUGS AND LIMITATIONS
 
-No bugs have been reported. Auto-detection of local should probably
+No bugs have been reported. Auto-detection of locale should probably
 extend to output encoding when printing to standard output, as opposed
 to assuming UTF-8 is fine.
 
@@ -4985,7 +4983,7 @@ Flavio Poletti C<polettix@cpan.org>
 
 =head1 LICENCE AND COPYRIGHT
 
-Copyright (c) 2015,2017 Flavio Poletti C<polettix@cpan.org>.
+Copyright (c) 2015, 2017 Flavio Poletti C<polettix@cpan.org>.
 
 This module is free software.  You can redistribute it and/or
 modify it under the terms of the Artistic License 2.0.
