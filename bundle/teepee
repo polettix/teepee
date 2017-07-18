@@ -5,7 +5,7 @@ use Carp;
 use Pod::Usage qw< pod2usage >;
 use Getopt::Long qw< :config gnu_getopt >;
 use English qw< -no_match_vars >;
-my $VERSION = '0.6.0';
+my $VERSION = '0.7.0';
 use List::Util qw< reduce >;
 use I18N::Langinfo qw(langinfo CODESET);
 use Scalar::Util qw< refaddr blessed >;
@@ -3545,6 +3545,8 @@ my %config = (
    'default-key'     => '_',
    define            => [],
    input             => [],
+   lib               => [],
+   module            => [],
    output            => '-',
 );
 GetOptions(
@@ -3560,6 +3562,8 @@ GetOptions(
      format|f=s
      function|F=s
      input|i=s@
+     lib|include|l=s@
+     module|M=s@
      newline|n!
      no-input|N!
      output|o=s
@@ -3586,7 +3590,17 @@ $config{newline} = 1
 # Script implementation here
 my ($vars, $has_auto_keys) = read_inputs(\%config);
 my $template = read_template(\%config);
-{
+include_and_use(\%config);
+my $ofh = get_output_fh($config{output}, $config{binmode});
+my $output = render($template, $vars);
+print {$ofh} $output if defined $output;
+print {$ofh} "\n"    if $config{newline};
+
+
+sub include_and_use {
+   my $cfg = shift;
+
+   package Template::Perlish;
    no warnings 'once';
    my $crumbr = sub {
       my ($profile, $variables) = @_;
@@ -3606,21 +3620,36 @@ my $template = read_template(\%config);
       delete $retval{$config{'default-key'}};
       return \%retval;
    };
-   *Template::Perlish::crumbr_as    = $crumbr;
-   *Template::Perlish::crumbr       = sub { $crumbr->('URI', @_) };
-   *Template::Perlish::uri_crumbr   = sub { $crumbr->('URI', @_) };
-   *Template::Perlish::exact_crumbr = sub { $crumbr->('Default', @_) };
-   *Template::Perlish::json_crumbr  = sub { $crumbr->('JSON', @_) };
-   *Template::Perlish::JSON         = sub { JSON($ic->(@_)) };
-   *Template::Perlish::YAML         = sub { YAML($ic->(@_)) };
-   *Template::Perlish::slurp        = \&slurp;
-   *Template::Perlish::indent       = \&indent;
-   *Template::Perlish::base64       = \&base64;
+   *crumbr_as    = $crumbr;
+   *crumbr       = sub { $crumbr->('URI', @_) };
+   *uri_crumbr   = sub { $crumbr->('URI', @_) };
+   *exact_crumbr = sub { $crumbr->('Default', @_) };
+   *json_crumbr  = sub { $crumbr->('JSON', @_) };
+   *JSON         = sub { JSON($ic->(@_)) };
+   *YAML         = sub { YAML($ic->(@_)) };
+   *slurp        = \&slurp;
+   *indent       = \&indent;
+   *base64       = \&base64;
+
+   unshift @INC, @{$cfg->{lib}};
+   my $token = qr{(?mxs: [a-zA-Z_]\w*)};
+   my $module_name = qr{(?mxs: $token (?: :: $token)*)};
+   my $sub_list    = qr{(?mxs: $token (?: \s*,\s* $token)*)};
+   my $simple      = qr{(?mxs: ($module_name) = ($sub_list))};
+   for my $item (@{$cfg->{module}}) {
+      if (my ($module, $list) = $item =~ m{\A\s* $simple \s*\z}mxs) {
+         (my $fname = $module . '.pm') =~ s{::}{/}gmxs;
+         require $fname;
+         no strict 'refs';
+         for my $name (split /\s*,\s*/mxs, $list) {
+            *{$name} = \&{$module . '::' . $name};
+         }
+      }
+      else {
+         eval "use $item;";
+      }
+   }
 }
-my $ofh = get_output_fh($config{output}, $config{binmode});
-my $output = render($template, $vars);
-print {$ofh} $output if defined $output;
-print {$ofh} "\n"    if $config{newline};
 
 sub get_output_fh {
    my ($filename, $binmode) = @_;
@@ -3921,6 +3950,8 @@ L<http://github.polettix.it/teepee/>.
           [-i|--input filename]
           [-j|--jsn|--json filename]
           [-J|--JSN|--JSON text]
+          [-l|--lib|--include dirname]
+          [-M|--module module-spec]
           [-n|--newline|--no-newline]
           [-N|--no-input]
           [-o|--output filename]
@@ -4052,6 +4083,12 @@ doubt, just use a UTF-8 encoded file for your template.
 Output is sent to either standard output (by default or if you set the
 filename to C<->) or to the filename specified via option C</--output>.
 Output will be printed assuming that the receiving end is UTF-8 capable.
+
+As of version C<0.7.0>, it is possible to also pre-load modules in the
+I<right> package where the templates are expanded, with a simple syntax
+that leverages on options L</-M>/L</--module> (for importing modules) and
+L</-l>/L</--lib>/L</--include> (for adding directories to the module search
+path).
 
 =head2 Reading Inputs
 
@@ -4706,9 +4743,36 @@ L</--json>.
 This can come handy when you have read your data structure in a shell
 variable, and don't want to do tricks with redirections.
 
+=item -l
+
+=item --lib
+
+=item --include
+
+   -l lib
+   --lib /path/to/local/lib
+   --include /from/other/perl/lib
+
+add a path to the array C<@INC> where modules are looked for. This
+actually applies only to items loaded via L</-M>/L</--module> below,
+because the inclusion of the directories happens at runtime.
+
 =item --man
 
 print out the full documentation for the script.
+
+=item -M
+
+=item --module
+
+   -M Digest::MD5=md5_hex
+   --module 'Log::Log4perl::Tiny qw< :easy >'
+
+import a module and its functions. The first flavor has a
+specification where you can put C<Module::Name=func1,func2,...>,
+otherwise you can specify a line that will C<eval>ed like
+C<use $your_line;>.
+
 
 =item -n
 

@@ -34,6 +34,8 @@ For way more than you want to know about `teepee` visit also
            [-i|--input filename]
            [-j|--jsn|--json filename]
            [-J|--JSN|--JSON text]
+           [-l|--lib|--include dirname]
+           [-M|--module module-spec]
            [-n|--newline|--no-newline]
            [-N|--no-input]
            [-o|--output filename]
@@ -165,6 +167,12 @@ doubt, just use a UTF-8 encoded file for your template.
 Output is sent to either standard output (by default or if you set the
 filename to `-`) or to the filename specified via option `/--output`.
 Output will be printed assuming that the receiving end is UTF-8 capable.
+
+As of version `0.7.0`, it is possible to also pre-load modules in the
+_right_ package where the templates are expanded, with a simple syntax
+that leverages on options ["-M"](#m)/["--module"](#module) (for importing modules) and
+["-l"](#l)/["--lib"](#lib)/["--include"](#include) (for adding directories to the module search
+path).
 
 ## Reading Inputs
 
@@ -764,9 +772,32 @@ leaf value only.
     This can come handy when you have read your data structure in a shell
     variable, and don't want to do tricks with redirections.
 
+- -l
+- --lib
+- --include
+
+        -l lib
+        --lib /path/to/local/lib
+        --include /from/other/perl/lib
+
+    add a path to the array `@INC` where modules are looked for. This
+    actually applies only to items loaded via ["-M"](#m)/["--module"](#module) below,
+    because the inclusion of the directories happens at runtime.
+
 - --man
 
     print out the full documentation for the script.
+
+- -M
+- --module
+
+        -M Digest::MD5=md5_hex
+        --module 'Log::Log4perl::Tiny qw< :easy >'
+
+    import a module and its functions. The first flavor has a
+    specification where you can put `Module::Name=func1,func2,...`,
+    otherwise you can specify a line that will `eval`ed like
+    `use $your_line;`.
 
 - -n
 - --newline
