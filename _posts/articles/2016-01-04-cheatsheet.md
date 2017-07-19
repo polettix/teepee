@@ -14,8 +14,8 @@ A few (more) hints on how to use `teepee`.
 
 ## Assumptions
 
-We will assume to have the following `filename.json` JSON file lying
-around:
+We will assume to have the following [`filename.json`](filename.json) JSON
+file lying around:
 
 {% highlight json %}
 {
@@ -42,7 +42,7 @@ around:
 }
 {% endhighlight %}
 
-and the corresponding `filename.yaml` too.
+and the corresponding [`filename.yaml`](filename.yaml) too.
 
 ## Input
 
@@ -377,3 +377,52 @@ $ teepee -j filename.json -F 'print "- $_->{id}\n" for HV "cpan.favorites"'
 - HAARG
 - YANICK
 {% endhighlight %}
+
+### Loading Functions
+
+If you want to load Perl functions from modules, as of version `0.7.0`
+you can with options `-M` and `-l`.
+
+The former (`-M`, alias `--module`) allows you to load modules and
+functions from the command line, and consume those functions from inside
+the template:
+
+{% highlight bash %}
+$ teepee -nj filename.json -M Digest::MD5=md5_hex -F 'md5_hex(V "name")'
+e6a25ad746bb0923f593e94f5128d13d
+{% endhighlight %}
+
+You can import multiple functions separating their names with a comma:
+
+{% highlight bash %}
+$ teepee -nj filename.json -M Digest::MD5=md5_hex,md5_base64 \
+    -F 'md5_hex(V "name") . " " . md5_base64(V "name")'
+e6a25ad746bb0923f593e94f5128d13d 5qJa10a7CSP1k+lPUSjRPQ
+{% endhighlight %}
+
+Alternatively, you can just specify a line that will be `use`d:
+
+{% highlight bash %}
+$ teepee -nj filename.json -M 'Digest::MD5 qw< md5_hex md5_base64 >' \
+    -F 'md5_hex(V "name") . " " . md5_base64(V "name")'
+e6a25ad746bb0923f593e94f5128d13d 5qJa10a7CSP1k+lPUSjRPQ
+{% endhighlight %}
+
+In particular, whatever you pass as parameter will be `eval`ed like
+follows:
+
+{% highlight perl %}
+# -M 'Digest::MD5 qw< md5_hex md5_base64 >'
+use Digest::MD5 qw< md5_hex md5_base64 >;
+{% endhighlight %}
+
+If you want to load modules/functions that don't lie around in places
+`perl` would normally look into, you can add places to the directory
+search list using option `-l` (alias `--lib`, alias `--include`).
+Suppose you have module `Foo::Bar` inside `lib/Foo/Bar.pm`:
+
+{% highlight bash %}
+$ teepee -nj filename.json -M 'Foo::Bar' -l lib -F 'foo(V "name")'
+...
+{% endhighlight %}
+

@@ -1,0 +1,22 @@
+{
+    "name": "Flavio",
+    "surname": "Poletti",
+    "cpan": {
+        "metacpan": "https://metacpan.org/author/POLETTIX",
+        "latest": [
+            "Data::Crumbr",
+            "Template::Perlish",
+            "Graphics::Potrace",
+            "Log::Log4perl::Tiny"
+        ],
+        "favorites": {
+            "JSON":   { "id": "MAKAMAKA" },
+            "Dancer": { "id": "YANICK"   },
+            "Moo":    { "id": "HAARG"    }
+        },
+        "using": {
+            "JSON": { "id": "https://metacpan.org/release/JSON" }
+        },
+        "id": "POLETTIX"
+    }
+}

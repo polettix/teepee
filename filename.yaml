@@ -1,0 +1,21 @@
+---
+cpan:
+  favorites:
+    Dancer:
+      id: YANICK
+    JSON:
+      id: MAKAMAKA
+    Moo:
+      id: HAARG
+  id: POLETTIX
+  latest:
+    - Data::Crumbr
+    - Template::Perlish
+    - Graphics::Potrace
+    - Log::Log4perl::Tiny
+  metacpan: https://metacpan.org/author/POLETTIX
+  using:
+    JSON:
+      id: https://metacpan.org/release/JSON
+name: Flavio
+surname: Poletti
