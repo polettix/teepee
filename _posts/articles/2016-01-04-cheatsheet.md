@@ -14,8 +14,8 @@ A few (more) hints on how to use `teepee`.
 
 ## Assumptions
 
-We will assume to have the following [`filename.json`]({% baseurl
-%}/assets/filename.json) JSON file lying around:
+We will assume to have the following [`filename.json`]({{ site.baseurl
+}}/assets/filename.json) JSON file lying around:
 
 {% highlight json %}
 {
@@ -42,8 +42,8 @@ We will assume to have the following [`filename.json`]({% baseurl
 }
 {% endhighlight %}
 
-and the corresponding [`filename.yaml`]({% baseurl %}/assets/filename.yaml)
-too.
+and the corresponding [`filename.yaml`]({{ site.baseurl
+}}/assets/filename.yaml) too.
 
 ## Input
 
