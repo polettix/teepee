@@ -14,8 +14,8 @@ A few (more) hints on how to use `teepee`.
 
 ## Assumptions
 
-We will assume to have the following [`filename.json`](/assets/filename.json)
-JSON file lying around:
+We will assume to have the following [`filename.json`]({% baseurl
+%}/assets/filename.json) JSON file lying around:
 
 {% highlight json %}
 {
@@ -42,7 +42,8 @@ JSON file lying around:
 }
 {% endhighlight %}
 
-and the corresponding [`filename.yaml`](/assets/filename.yaml) too.
+and the corresponding [`filename.yaml`]({% baseurl %}/assets/filename.yaml)
+too.
 
 ## Input
 
