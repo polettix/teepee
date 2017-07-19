@@ -5,7 +5,7 @@ use Carp;
 use Pod::Usage qw< pod2usage >;
 use Getopt::Long qw< :config gnu_getopt >;
 use English qw< -no_match_vars >;
-my $VERSION = '0.7.0';
+my $VERSION = '0.7.1';
 use List::Util qw< reduce >;
 use I18N::Langinfo qw(langinfo CODESET);
 use Scalar::Util qw< refaddr blessed >;
@@ -3625,11 +3625,11 @@ sub include_and_use {
    *uri_crumbr   = sub { $crumbr->('URI', @_) };
    *exact_crumbr = sub { $crumbr->('Default', @_) };
    *json_crumbr  = sub { $crumbr->('JSON', @_) };
-   *JSON         = sub { JSON($ic->(@_)) };
-   *YAML         = sub { YAML($ic->(@_)) };
-   *slurp        = \&slurp;
-   *indent       = \&indent;
-   *base64       = \&base64;
+   *JSON         = sub { main::JSON($ic->(@_)) };
+   *YAML         = sub { main::YAML($ic->(@_)) };
+   *slurp        = \&main::slurp;
+   *indent       = \&main::indent;
+   *base64       = \&main::base64;
 
    unshift @INC, @{$cfg->{lib}};
    my $token = qr{(?mxs: [a-zA-Z_]\w*)};
