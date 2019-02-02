@@ -3630,6 +3630,8 @@ sub include_and_use {
    *slurp        = \&main::slurp;
    *indent       = \&main::indent;
    *base64       = \&main::base64;
+   *urlenc       = \&main::urlenc;
+   *xmlenc       = \&main::xmlenc;
 
    unshift @INC, @{$cfg->{lib}};
    my $token = qr{(?mxs: [a-zA-Z_]\w*)};
@@ -3775,6 +3777,25 @@ sub indent {
 sub base64 {
    require MIME::Base64;
    return MIME::Base64::encode_base64($_[0]);
+}
+
+sub xmlenc {
+   (my $retval = $_[0]) =~ s{([<>'"&])}{sprintf "&#%d;", ord $1}egmxs;
+   return $retval;
+}
+
+{
+   my $enc;
+   sub urlenc {
+      $enc //= sub {
+         my ($e, @ps) = sprintf '%X', ord $_[0];
+         $e = '0' . $e if length($e) % 2;
+         push @ps, '%' . substr($e, 0, 2, '') while length $e;
+         return join '', @ps;
+      };
+      (my $retval = $_[0]) =~ s{([^-~._a-zA-Z0-9])}{$enc->($1)}egmxs;
+      return $retval;
+   }
 }
 
 sub slurp_octets { goto \&slurp }
