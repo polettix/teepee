@@ -228,6 +228,26 @@ Pretty-printing (or converting!) in YAML:
     name: Flavio
     surname: Poletti
 
+### Generating HTML/XML
+
+Functions `urlenc`, `xmlenc` and `xmltxt` can come handy when generating
+HTML/XML - they encode the argument to a representation that is safe for
+inclusion in URL or text, respectively. This is `urlenc` in action:
+
+    $ ./teepee -nNT 'http://example.com/[%= urlenc("&a <- \"b\"") %]'
+    http://example.com/%26a%20%3C-%20%22b%22
+
+`xmlenc` encodes the five reserved characters
+
+    $ ./teepee -nNT '<hey>[%= xmlenc("&a <- \"b\"") %]</hey>'
+    <hey>&#38;a &#60;- &#34;b&#34;</hey>
+
+`xmltxt` is like `xmlenc`, but it encodes only `<` and `&` (which should be
+fine in all cases anyway).
+
+    $ ./teepee -nNT '<hey>[%= xmltxt("&a <- \"b\"") %]</hey>'
+    <hey>&#38;a &#60;- "b"</hey>
+
 ### Crumbr Mode
 
 Crumbr mode allows you to expand the whole input data structure with one
