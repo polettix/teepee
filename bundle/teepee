@@ -3632,6 +3632,7 @@ sub include_and_use {
    *base64       = \&main::base64;
    *urlenc       = \&main::urlenc;
    *xmlenc       = \&main::xmlenc;
+   *xmltxt       = \&main::xmltxt;
 
    unshift @INC, @{$cfg->{lib}};
    my $token = qr{(?mxs: [a-zA-Z_]\w*)};
