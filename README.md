@@ -668,6 +668,22 @@ leaf value only.
 
             slurp('/path/to/filen.ame');
 
+    - `urlenc`
+
+        encode a string in a form suitable for inclusion in a URL. All characters
+        that are not in ` a-z A-Z 0-9 - ~ _ . ` are transformed into their
+        percent-encoded counterparts.
+
+    - `xmlenc`
+
+        encode a string in a form suitable for use as XML text. Characters
+        `< > & ' "` are transformed (in numeric form).
+
+    - `xmltxt`
+
+        encode a string in a form suitable for use as XML text. Only characters
+        `< &` are transformed (in numeric form).
+
     - `crumbr_as(type)`
 
         where `type` can be `URI`, `Default` or `JSON`;

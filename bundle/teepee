@@ -3784,6 +3784,11 @@ sub xmlenc {
    return $retval;
 }
 
+sub xmltxt {
+   (my $retval = $_[0]) =~ s{([<&])}{sprintf "&#%d;", ord $1}egmxs;
+   return $retval;
+}
+
 {
    my $enc;
    sub urlenc {
@@ -4651,6 +4656,22 @@ read a whole file, optionally setting the encoding via C<binmode> (defaults
 to C<:raw>, i.e. no reading tricks applied). Use it like this:
 
    slurp('/path/to/filen.ame');
+
+=item * C<urlenc>
+
+encode a string in a form suitable for inclusion in a URL. All characters
+that are not in C< a-z A-Z 0-9 - ~ _ . > are transformed into their
+percent-encoded counterparts.
+
+=item * C<xmlenc>
+
+encode a string in a form suitable for use as XML text. Characters
+C<< < > & ' " >> are transformed (in numeric form).
+
+=item * C<xmltxt>
+
+encode a string in a form suitable for use as XML text. Only characters
+C<< < & >> are transformed (in numeric form).
 
 =item * C<crumbr_as(type)>
 
