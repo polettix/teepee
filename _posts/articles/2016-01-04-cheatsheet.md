@@ -14,8 +14,7 @@ A few (more) hints on how to use `teepee`.
 
 ## Assumptions
 
-We will assume to have the following [`filename.json`]({{ site.baseurl
-}}/assets/filename.json) JSON file lying around:
+We will assume to have the following [`filename.json`]({{ site.baseurl }}/assets/filename.json) JSON file lying around:
 
 {% highlight json %}
 {
@@ -42,8 +41,7 @@ We will assume to have the following [`filename.json`]({{ site.baseurl
 }
 {% endhighlight %}
 
-and the corresponding [`filename.yaml`]({{ site.baseurl
-}}/assets/filename.yaml) too.
+and the corresponding [`filename.yaml`]({{ site.baseurl }}/assets/filename.yaml) too.
 
 ## Input
 
@@ -279,14 +277,14 @@ Functions `urlenc`, `xmlenc` and `xmltxt` can come handy when generating
 HTML/XML - they encode the argument to a representation that is safe for
 inclusion in URL or text, respectively. This is `urlenc` in action:
 
-{% highlight bash %}
-    $ ./teepee -nNT 'http://example.com/[%= urlenc("&a <- \"b\"") %]'
-    http://example.com/%26a%20%3C-%20%22b%22
+{% highlight text %}
+$ ./teepee -nNT 'http://example.com/[%= urlenc("&a <- \"b\"") %]'
+http://example.com/%26a%20%3C-%20%22b%22
 {% endhighlight %}
 
-`xmlenc` encodes the five reserved characters:
+`xmlenc` encodes the five reserved characters `< > ' " &`:
 
-{% highlight bash %}
+{% highlight text %}
 $ ./teepee -nNT '<hey>[%= xmlenc("&a <- \"b\"") %]</hey>'
 <hey>&#38;a &#60;- &#34;b&#34;</hey>
 {% endhighlight %}
@@ -294,7 +292,7 @@ $ ./teepee -nNT '<hey>[%= xmlenc("&a <- \"b\"") %]</hey>'
 `xmltxt` is like `xmlenc`, but it encodes only `<` and `&` (which should be
 fine in all cases anyway):
 
-{% highlight bash %}
+{% highlight text %}
 $ ./teepee -nNT '<hey>[%= xmltxt("&a <- \"b\"") %]</hey>'
 <hey>&#38;a &#60;- "b"</hey>
 {% endhighlight %}
