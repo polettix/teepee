@@ -33,7 +33,7 @@ For way more than you want to know about `teepee` visit also
            [-I|--immediate text]
            [-i|--input filename]
            [-j|--jsn|--json filename]
-           [-J|--JSN|--JSON text]
+           [-J|--json-s text]
            [-l|--lib|--include dirname]
            [-M|--module module-spec]
            [-n|--newline|--no-newline]
@@ -43,7 +43,9 @@ For way more than you want to know about `teepee` visit also
            [-T|--text string]
            [-v|--variable string]
            [-y|--yml|--yaml filename]
-           [-Y|--YML|--YAML text]
+           [   --yaml-1 filename]
+           [-Y|--yaml-s text]
+           [   --yaml-s1 text]
 
 # EXAMPLES
 
@@ -772,18 +774,15 @@ leaf value only.
     add an input file indicating that its format is JSON.
 
 - -J
-- --JSN
-- --JSON
+- --json-s
 
         -J '{"ciao":"a tutti"}'
-        --JSN '{"hi":"there"}'
-        --JSON '{"hey":"joe"}'
+        --json-s '{"hey":"joe"}'
 
     immediate input, whose content is directly in the command line
     parameter, read as JSON.
 
-    Note that the case of the option is all uppercase, as opposed to
-    ["--json"](#json).
+    Note that the case of the lowercase option is uppercase.
 
     This can come handy when you have read your data structure in a shell
     variable, and don't want to do tricks with redirections.
@@ -901,22 +900,48 @@ leaf value only.
 
     add an input file indicating that its format is YAML.
 
+- --yaml-1
+
+        --yaml-1 file-with-yaml-frontmatter.md
+
+    add an input file which has an initial header that is formatted in YAML.
+    This is useful for reading the _front matter_ from a Markdown file, if
+    present, like in the following example:
+
+        ---
+        title: My shiny post
+        type: post
+        date: 2022-05-06 07:00:00 +0200
+        ---
+
+        # Post title
+
+        This is a post about...
+
 - -Y
-- --YML
-- --YAML
+- --yaml-s
 
         -Y '"ciao": "a tutti"'
-        --YML '"hi": "there"'
-        --YAML '"hey": "joe"'
+        --yaml-s '"hi": "there"'
 
-    immediate input, whose content is directly in the command line
+    immediate input, whose content is provided directly in the command line
     parameter, read as YAML.
 
-    Note that the case of the option is all uppercase, as opposed to
-    ["--yaml"](#yaml).
+    Note that the case of the short option is uppercase.
 
     This can come handy when you have read your data structure in a shell
     variable, and don't want to do tricks with redirections.
+
+- --yaml-s1
+
+        --yaml-s1 "$string_with_yaml_frontmatter"
+
+    immediate input, whose content is provided directly in the command line
+    parameter, which starts with valid YAML.
+
+    This can be handy to parse the YAML _front matter_ from a string that
+    contains a whole Markdown document that contains one. See ["--yaml-1"](#yaml-1)
+    for an example.
 
 # DIAGNOSTICS
 

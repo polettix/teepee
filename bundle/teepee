@@ -5,7 +5,7 @@ use Carp;
 use Pod::Usage qw< pod2usage >;
 use Getopt::Long qw< :config gnu_getopt >;
 use English qw< -no_match_vars >;
-my $VERSION = '0.7.1';
+my $VERSION = '0.8.0';
 use List::Util qw< reduce >;
 use I18N::Langinfo qw(langinfo CODESET);
 use Scalar::Util qw< refaddr blessed >;
@@ -3573,9 +3573,11 @@ GetOptions(
      >,
      'immediate|I=s@' => sub { push @{$config{input}},          \$_[1]  },
      'json|jsn|j=s@'  => sub { push @{$config{input}}, [json =>  $_[1]] },
-     'JSON|JSN|J=s@'  => sub { push @{$config{input}}, [json => \$_[1]] },
+     'json-s|J=s@'    => sub { push @{$config{input}}, [json => \$_[1]] },
      'yaml|yml|y=s@'  => sub { push @{$config{input}}, [yaml =>  $_[1]] },
-     'YAML|YML|Y=s@'  => sub { push @{$config{input}}, [yaml => \$_[1]] },
+     'yaml-1=s@'      => sub { push @{$config{input}}, [yml1 =>  $_[1]] },
+     'yaml-s|Y=s@'    => sub { push @{$config{input}}, [yaml => \$_[1]] },
+     'yaml-s1=s@'     => sub { push @{$config{input}}, [yml1 => \$_[1]] },
 ) or pod2usage(-verbose => 99, -sections => 'USAGE');
 pod2usage(message => "$0 $VERSION", -verbose => 99, -sections => ' ')
   if $config{version};
@@ -3741,6 +3743,7 @@ sub read_input {
    my $function = {
       yaml => \&read_input_yaml,
       yml  => \&read_input_yaml,
+      yml1 => \&read_input_yaml_first,
       json => \&read_input_json,
       jsn  => \&read_input_json,
    }->{lc($format)};
@@ -3813,6 +3816,11 @@ sub load_any {
    }
    die "$EVAL_ERROR\n";
 } ## end sub load_any
+
+sub read_input_yaml_first {
+   (my $data = $_[0]) =~ s{\n---\n.*}{}mxs;
+   return read_input_yaml($data);
+}
 
 sub read_input_yaml {
    my $module = load_any(@YAML_MODULES);
@@ -3976,7 +3984,7 @@ L<http://github.polettix.it/teepee/>.
           [-I|--immediate text]
           [-i|--input filename]
           [-j|--jsn|--json filename]
-          [-J|--JSN|--JSON text]
+          [-J|--json-s text]
           [-l|--lib|--include dirname]
           [-M|--module module-spec]
           [-n|--newline|--no-newline]
@@ -3986,7 +3994,9 @@ L<http://github.polettix.it/teepee/>.
           [-T|--text string]
           [-v|--variable string]
           [-y|--yml|--yaml filename]
-          [-Y|--YML|--YAML text]
+          [   --yaml-1 filename]
+          [-Y|--yaml-s text]
+          [   --yaml-s1 text]
 
 =head1 EXAMPLES
 
@@ -4769,19 +4779,15 @@ add an input file indicating that its format is JSON.
 
 =item -J
 
-=item --JSN
-
-=item --JSON
+=item --json-s
 
    -J '{"ciao":"a tutti"}'
-   --JSN '{"hi":"there"}'
-   --JSON '{"hey":"joe"}'
+   --json-s '{"hey":"joe"}'
 
 immediate input, whose content is directly in the command line
 parameter, read as JSON.
 
-Note that the case of the option is all uppercase, as opposed to
-L</--json>.
+Note that the case of the lowercase option is uppercase.
 
 This can come handy when you have read your data structure in a shell
 variable, and don't want to do tricks with redirections.
@@ -4913,24 +4919,50 @@ print the version of the script.
 
 add an input file indicating that its format is YAML.
 
+=item --yaml-1
+
+   --yaml-1 file-with-yaml-frontmatter.md
+
+add an input file which has an initial header that is formatted in YAML.
+This is useful for reading the I<front matter> from a Markdown file, if
+present, like in the following example:
+
+   ---
+   title: My shiny post
+   type: post
+   date: 2022-05-06 07:00:00 +0200
+   ---
+
+   # Post title
+
+   This is a post about...
+
+
 =item -Y
 
-=item --YML
-
-=item --YAML
+=item --yaml-s
 
    -Y '"ciao": "a tutti"'
-   --YML '"hi": "there"'
-   --YAML '"hey": "joe"'
+   --yaml-s '"hi": "there"'
 
-immediate input, whose content is directly in the command line
+immediate input, whose content is provided directly in the command line
 parameter, read as YAML.
 
-Note that the case of the option is all uppercase, as opposed to
-L</--yaml>.
+Note that the case of the short option is uppercase.
 
 This can come handy when you have read your data structure in a shell
 variable, and don't want to do tricks with redirections.
+
+=item --yaml-s1
+
+   --yaml-s1 "$string_with_yaml_frontmatter"
+
+immediate input, whose content is provided directly in the command line
+parameter, which starts with valid YAML.
+
+This can be handy to parse the YAML I<front matter> from a string that
+contains a whole Markdown document that contains one. See L</--yaml-1>
+for an example.
 
 
 =back
